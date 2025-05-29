@@ -1,0 +1,64 @@
+<ion-header class="md:hidden">
+  <ion-toolbar color="primary" class="dark:bg-kwd-darker">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/app/buildings"></ion-back-button>
+    </ion-buttons>
+    <ion-title class="dark:text-kwd-light">{{ pageTitle }}</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="bg-gray-100 dark:bg-kwd-dark">
+  <div class="p-4 md:p-6 lg:p-8">
+    <div class="max-w-2xl mx-auto">
+      <div class="mb-6">
+        <h1 class="text-2xl font-semibold text-gray-800 dark:text-kwd-light">{{ pageTitle }}</h1>
+        <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+          {{ isEditMode ? 'Actualiza los detalles del edificio.' : 'Completa la información para crear un nuevo edificio.' }}
+        </p>
+      </div>
+
+      <div *ngIf="isLoadingInitialData && isEditMode" class="py-8 text-center">
+        <ion-spinner name="crescent" color="primary"></ion-spinner>
+        <p class="mt-2 text-gray-500 dark:text-gray-400">Cargando datos del edificio...</p>
+      </div>
+
+      <form [formGroup]="buildingForm" (ngSubmit)="onSubmit()" *ngIf="!isLoadingInitialData"
+            class="p-6 space-y-6 bg-white rounded-lg shadow dark:bg-kwd-darker">
+        
+        <div>
+          <label for="name" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Nombre del Edificio</label>
+          <input type="text" id="name" formControlName="name" placeholder="Ej: Bloque A, Edificio de Ingeniería"
+                 class="block w-full px-3 py-2 mt-1 text-gray-900 border border-gray-300 rounded-md shadow-sm dark:bg-kwd-dark dark:border-gray-600 dark:text-kwd-light focus:outline-none focus:ring-kwd-blue-DEFAULT focus:border-kwd-blue-DEFAULT sm:text-sm"
+                 [ngClass]="{'border-red-500 dark:border-kwd-red': buildingForm.get('name')?.invalid && buildingForm.get('name')?.touched}">
+          <div *ngIf="buildingForm.get('name')?.invalid && buildingForm.get('name')?.touched" class="mt-1 text-xs text-red-600 dark:text-kwd-red">
+            <small *ngIf="buildingForm.get('name')?.errors?.['required']">El nombre es requerido.</small>
+            <small *ngIf="buildingForm.get('name')?.errors?.['minlength']">Debe tener al menos 2 caracteres.</small>
+          </div>
+        </div>
+
+        <div>
+          <label for="location" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Ubicación</label>
+          <input type="text" id="location" formControlName="location" placeholder="Ej: Campus Central, Zona Norte"
+                 class="block w-full px-3 py-2 mt-1 text-gray-900 border border-gray-300 rounded-md shadow-sm dark:bg-kwd-dark dark:border-gray-600 dark:text-kwd-light focus:outline-none focus:ring-kwd-blue-DEFAULT focus:border-kwd-blue-DEFAULT sm:text-sm"
+                 [ngClass]="{'border-red-500 dark:border-kwd-red': buildingForm.get('location')?.invalid && buildingForm.get('location')?.touched}">
+          <div *ngIf="buildingForm.get('location')?.invalid && buildingForm.get('location')?.touched" class="mt-1 text-xs text-red-600 dark:text-kwd-red">
+            <small *ngIf="buildingForm.get('location')?.errors?.['required']">La ubicación es requerida.</small>
+            <small *ngIf="buildingForm.get('location')?.errors?.['minlength']">Debe tener al menos 3 caracteres.</small>
+          </div>
+        </div>
+
+        <div class="flex flex-col pt-4 space-y-3 sm:space-y-0 sm:flex-row sm:justify-end sm:space-x-3">
+          <button type="button" (click)="cancel()"
+                  class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm dark:bg-kwd-darker dark:text-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-kwd-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-kwd-blue-500">
+            Cancelar
+          </button>
+          <button type="submit" [disabled]="buildingForm.invalid || isLoading"
+                  class="flex items-center justify-center px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md shadow-sm bg-kwd-blue-DEFAULT hover:bg-kwd-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-kwd-blue-500 dark:bg-kwd-blue-600 dark:hover:bg-kwd-blue-700 disabled:opacity-50">
+            <ion-spinner *ngIf="isLoading" name="dots" class="w-5 h-5 mr-3 -ml-1 text-white"></ion-spinner>
+            {{ isEditMode ? 'Actualizar' : 'Crear' }} Edificio
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</ion-content>

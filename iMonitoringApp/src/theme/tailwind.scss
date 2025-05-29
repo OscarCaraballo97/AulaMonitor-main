@@ -1,0 +1,13 @@
+@use 'tailwindcss/base';
+@use 'tailwindcss/components';
+@use 'tailwindcss/utilities';
+
+@layer base {
+  body {
+    @apply font-sans text-gray-900 bg-gray-100;
+  }
+
+  body.dark {
+    @apply text-kwd-light bg-kwd-dark;
+  }
+}

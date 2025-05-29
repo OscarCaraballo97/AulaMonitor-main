@@ -1,0 +1,134 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-menu-button></ion-menu-button>
+    </ion-buttons>
+    <ion-title>Mi Perfil</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="toggleEdit()" *ngIf="!isEditing && currentUser">
+        <ion-icon slot="icon-only" name="create-outline"></ion-icon>
+      </ion-button>
+      <ion-button (click)="saveProfile()" *ngIf="isEditing && currentUser" [disabled]="profileForm.invalid || isLoading">
+        <ion-icon slot="icon-only" name="save-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding profile-content dark:bg-kwd-dark">
+  <ion-loading [isOpen]="isLoading" message="Procesando..."></ion-loading>
+
+  <div *ngIf="currentUser" class="profile-container">
+    <ion-card class="profile-card dark:bg-kwd-darker dark:text-kwd-light">
+      <ion-card-header class="profile-card-header">
+        <div class="xs:flex-col flex items-center justify-center md:justify-start space-x-0 md:space-x-4">
+          <ion-avatar class="profile-avatar" (click)="isEditing && openAvatarOptions()">
+            <img [src]="profileForm.get('avatarUrl')?.value || currentUser.avatarUrl || 'assets/images/user-default.png'" (error)="handleAvatarError($event)" />
+            <div *ngIf="isEditing" class="avatar-edit-overlay">
+              <ion-icon name="camera" class="text-xl"></ion-icon>
+            </div>
+          </ion-avatar>
+          <div class="xs:text-center xs:mt-2 md:text-left">
+            <ion-card-title class="profile-name">{{ currentUser.name }}</ion-card-title>
+            <ion-card-subtitle class="profile-role">{{ currentUser.role | titlecase }}</ion-card-subtitle>
+          </div>
+        </div>
+      </ion-card-header>
+
+      <ion-card-content>
+        <form [formGroup]="profileForm" (ngSubmit)="saveProfile()">
+          <ion-list lines="none" class="profile-list">
+            <ion-item class="profile-item dark:bg-kwd-darker">
+              <ion-icon name="person-circle-outline" slot="start" class="profile-item-icon"></ion-icon>
+              <ion-label position="stacked" class="profile-label">Nombre Completo</ion-label>
+              <ion-input type="text" formControlName="name" class="profile-input dark:text-kwd-light" [readonly]="!isEditing"></ion-input>
+            </ion-item>
+            <div *ngIf="profileForm.get('name')?.invalid && profileForm.get('name')?.touched" class="error-message">
+              <small *ngIf="profileForm.get('name')?.errors?.['required']">El nombre es requerido.</small>
+            </div>
+
+            <ion-item class="profile-item dark:bg-kwd-darker">
+              <ion-icon name="mail-outline" slot="start" class="profile-item-icon"></ion-icon>
+              <ion-label position="stacked" class="profile-label">Correo Electrónico</ion-label>
+              <ion-input type="email" formControlName="email" class="profile-input dark:text-kwd-light" [readonly]="!isEditing"></ion-input>
+            </ion-item>
+            <div *ngIf="profileForm.get('email')?.invalid && profileForm.get('email')?.touched" class="error-message">
+              <small *ngIf="profileForm.get('email')?.errors?.['required']">El correo es requerido.</small>
+              <small *ngIf="profileForm.get('email')?.errors?.['email']">Correo inválido.</small>
+            </div>
+
+            <ion-item class="profile-item dark:bg-kwd-darker" *ngIf="isEditing">
+              <ion-icon name="image-outline" slot="start" class="profile-item-icon"></ion-icon>
+              <ion-label position="stacked" class="profile-label">URL del Avatar (Opcional)</ion-label>
+              <ion-input type="url" formControlName="avatarUrl" class="profile-input dark:text-kwd-light"></ion-input>
+            </ion-item>
+          </ion-list>
+
+          <div class="ion-padding-top form-actions" *ngIf="isEditing">
+            <ion-button type="submit" expand="block" [disabled]="profileForm.invalid || isLoading" color="primary" class="save-button">
+              <ion-icon name="save-outline" slot="start"></ion-icon>
+              Guardar Cambios
+            </ion-button>
+            <ion-button type="button" expand="block" fill="outline" (click)="toggleEdit()" color="medium" class="cancel-button dark:text-gray-300 dark:border-gray-600">
+              Cancelar
+            </ion-button>
+          </div>
+        </form>
+      </ion-card-content>
+    </ion-card>
+
+    <ion-card class="password-card dark:bg-kwd-darker dark:text-kwd-light">
+      <ion-card-header>
+        <ion-card-title class="password-card-title">Cambiar Contraseña</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <form [formGroup]="changePasswordForm" (ngSubmit)="changePassword()">
+          <ion-list lines="none" class="password-list">
+            <ion-item class="password-item dark:bg-kwd-darker">
+              <ion-icon name="lock-closed-outline" slot="start" class="password-item-icon"></ion-icon>
+              <ion-label position="stacked" class="password-label">Contraseña Actual</ion-label>
+              <ion-input type="password" formControlName="oldPassword" class="password-input dark:text-kwd-light"></ion-input>
+            </ion-item>
+            <div *ngIf="changePasswordForm.get('oldPassword')?.invalid && changePasswordForm.get('oldPassword')?.touched" class="error-message">
+              <small>Contraseña actual requerida.</small>
+            </div>
+
+            <ion-item class="password-item dark:bg-kwd-darker">
+              <ion-icon name="key-outline" slot="start" class="password-item-icon"></ion-icon>
+              <ion-label position="stacked" class="password-label">Nueva Contraseña</ion-label>
+              <ion-input type="password" formControlName="newPassword" class="password-input dark:text-kwd-light"></ion-input>
+            </ion-item>
+            <div *ngIf="changePasswordForm.get('newPassword')?.invalid && changePasswordForm.get('newPassword')?.touched" class="error-message">
+              <small *ngIf="changePasswordForm.get('newPassword')?.errors?.['required']">Nueva contraseña requerida.</small>
+              <small *ngIf="changePasswordForm.get('newPassword')?.errors?.['minlength']">Mínimo 6 caracteres.</small>
+            </div>
+
+            <ion-item class="password-item dark:bg-kwd-darker">
+              <ion-icon name="key-outline" slot="start" class="password-item-icon"></ion-icon>
+              <ion-label position="stacked" class="password-label">Confirmar Nueva Contraseña</ion-label>
+              <ion-input type="password" formControlName="confirmNewPassword" class="password-input dark:text-kwd-light"></ion-input>
+            </ion-item>
+            <div *ngIf="changePasswordForm.get('confirmNewPassword')?.invalid && changePasswordForm.get('confirmNewPassword')?.touched" class="error-message">
+              <small *ngIf="changePasswordForm.get('confirmNewPassword')?.errors?.['required']">Confirmación requerida.</small>
+              <small *ngIf="changePasswordForm.get('confirmNewPassword')?.errors?.['passwordMismatch']">Las contraseñas no coinciden.</small>
+            </div>
+            <div *ngIf="changePasswordForm.errors?.['passwordMismatchGlobal'] && !changePasswordForm.get('confirmNewPassword')?.errors?.['passwordMismatch']" class="error-message">
+                <small>Las contraseñas no coinciden.</small>
+            </div>
+          </ion-list>
+          <div class="ion-padding-top form-actions">
+            <ion-button type="submit" expand="block" [disabled]="changePasswordForm.invalid || isLoading" color="secondary" class="change-password-button">
+              <ion-icon name="checkmark-done-outline" slot="start"></ion-icon>
+              Cambiar Contraseña
+            </ion-button>
+          </div>
+        </form>
+      </ion-card-content>
+    </ion-card>
+  </div>
+
+  <div *ngIf="!currentUser && !isLoading" class="ion-text-center ion-padding">
+    <p>No se pudo cargar la información del perfil.</p>
+    <ion-button (click)="goBack()">Volver</ion-button>
+  </div>
+</ion-content>

@@ -1,0 +1,86 @@
+<ion-header class="md:hidden">
+  <ion-toolbar color="primary" class="dark:bg-kwd-darker">
+    <ion-buttons slot="start">
+      <ion-menu-button class="dark:text-kwd-light"></ion-menu-button>
+    </ion-buttons>
+    <ion-title class="dark:text-kwd-light">Disponibilidad de Aulas</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-header class="hidden md:block sticky top-0 z-10">
+  <ion-toolbar color="light" class="dark:bg-kwd-darker dark:text-kwd-light border-b dark:border-kwd-dark">
+    <ion-buttons slot="start">
+      <ion-menu-button class="dark:text-kwd-light"></ion-menu-button>
+    </ion-buttons>
+    <ion-title class="dark:text-kwd-light">Disponibilidad de Aulas</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="bg-gray-100 dark:bg-kwd-dark">
+  <div class="p-4 md:p-6 lg:p-8">
+    <div class="max-w-full mx-auto">
+
+      <div class="mb-6 p-4 bg-white rounded-lg shadow-md dark:bg-kwd-darker">
+        <ion-item lines="none" class="dark:bg-kwd-dark">
+          <ion-label position="stacked" class="text-gray-700 dark:text-gray-300">Seleccionar Aula:</ion-label>
+          <div *ngIf="isLoadingClassrooms" class="w-full py-2">
+             <ion-skeleton-text animated style="width: 100%; height: 36px;"></ion-skeleton-text>
+          </div>
+          <ion-select *ngIf="!isLoadingClassrooms && allClassrooms.length > 0"
+                      [value]="selectedClassroomId"
+                      interface="popover"
+                      placeholder="Ver disponibilidad de..."
+                      (ionChange)="onClassroomChange($event)"
+                      class="w-full mt-1 dark:text-kwd-light dark:bg-kwd-dark"
+                      okText="Aceptar" cancelText="Cancelar">
+            <ion-select-option *ngFor="let classroom of allClassrooms" [value]="classroom.id">
+              {{ classroom.name }} ({{ classroom.building?.name || 'N/A' }})
+            </ion-select-option>
+          </ion-select>
+          <div *ngIf="!isLoadingClassrooms && allClassrooms.length === 0" class="text-gray-500 dark:text-gray-400 py-2">
+            No hay aulas disponibles para mostrar.
+          </div>
+        </ion-item>
+      </div>
+
+      <div class="bg-white p-2 md:p-4 rounded-lg shadow-md dark:bg-kwd-darker">
+        <div *ngIf="isLoadingCalendar && selectedClassroomId" class="text-center py-20">
+          <ion-spinner name="crescent" color="primary"></ion-spinner>
+          <p class="mt-4 text-gray-500 dark:text-gray-400">Cargando calendario y reservas...</p>
+        </div>
+        
+        <div #calendarEl [hidden]="(isLoadingCalendar && selectedClassroomId) || !selectedClassroomId"></div>
+
+        <div *ngIf="!selectedClassroomId && !isLoadingClassrooms && allClassrooms.length > 0" class="text-center py-10 text-gray-600 dark:text-gray-400">
+          <p>Por favor, selecciona un aula para ver su disponibilidad.</p>
+        </div>
+      </div>
+      
+      <div *ngIf="selectedClassroomId && currentReservations.length > 0 && !isLoadingCalendar" class="mt-8 p-4 bg-white rounded-lg shadow-md dark:bg-kwd-darker">
+        <h3 class="text-lg font-semibold mb-3 text-gray-800 dark:text-kwd-light">
+          Reservas para {{ selectedClassroomName }} (Vista Actual del Calendario)
+        </h3>
+        <ion-list lines="inset" class="dark:bg-kwd-darker rounded-lg">
+          <ion-item *ngFor="let res of currentReservations" class="dark:bg-kwd-dark dark:text-gray-300 mb-2 rounded-md shadow-sm">
+            <ion-label>
+              <h2 class="font-semibold text-base">{{ res.purpose || 'Reserva' }}</h2>
+              <p class="text-sm"><strong>Usuario:</strong> {{ res.user?.name || 'N/A' }}</p>
+              <p class="text-sm"><strong>Desde:</strong> {{ res.startTime | date:'MMM d, y, h:mm a':'GMT-5':'es-CO' }}</p>
+              <p class="text-sm"><strong>Hasta:</strong> {{ res.endTime | date:'MMM d, y, h:mm a':'GMT-5':'es-CO' }}</p>
+              <p class="text-sm">
+                <strong>Estado:</strong> 
+                <span [style.color]="getEventColor(res.status)" class="font-medium">
+                  {{ res.status | titlecase }}
+                </span>
+              </p>
+            </ion-label>
+            </ion-item>
+        </ion-list>
+      </div>
+      <div *ngIf="selectedClassroomId && currentReservations.length === 0 && !isLoadingCalendar && !isLoadingClassrooms" class="mt-8 p-4 text-center text-gray-500 dark:text-gray-400">
+          <p>No hay reservas para el aula seleccionada en el rango de fechas visible.</p>
+        </div>
+
+    </div>
+  </div>
+</ion-content>

@@ -1,0 +1,79 @@
+<ion-header class="md:hidden">
+  <ion-toolbar color="primary" class="dark:bg-kwd-darker">
+    <ion-buttons slot="start">
+      <ion-menu-button menu="kwd-sidebar"></ion-menu-button>
+    </ion-buttons>
+    <ion-title class="dark:text-kwd-light">Aulas</ion-title>
+    <ion-buttons slot="end" *ngIf="canManageClassrooms()">
+      <ion-button (click)="navigateToAddClassroom()">
+        <ion-icon slot="icon-only" name="add-circle-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="bg-gray-100 dark:bg-kwd-dark">
+  <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  <div class="p-4 md:p-6 lg:p-8">
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
+      <h1 class="text-2xl font-semibold text-gray-800 dark:text-kwd-light">Gestión de Aulas</h1>
+      <button *ngIf="canManageClassrooms()" (click)="navigateToAddClassroom()"
+              class="mt-4 md:mt-0 flex items-center justify-center px-4 py-2 text-sm font-medium text-white rounded-md bg-kwd-blue-DEFAULT hover:bg-kwd-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-kwd-blue-500 dark:bg-kwd-blue-600 dark:hover:bg-kwd-blue-700">
+        <ion-icon name="add-outline" class="w-5 h-5 mr-2"></ion-icon>
+        Nueva Aula
+      </button>
+    </div>
+
+    <div *ngIf="isLoading && classrooms.length === 0" class="p-8 text-center text-gray-500 dark:text-gray-400">
+      <ion-spinner name="crescent" class="w-8 h-8"></ion-spinner>
+      <p class="mt-2">Cargando aulas...</p>
+    </div>
+
+    <div *ngIf="!isLoading && classrooms.length === 0 && !errorMessage" class="p-8 text-center text-gray-500 bg-white rounded-lg shadow-md dark:bg-kwd-darker dark:text-gray-400 mt-6">
+      <ion-icon name="cube-outline" class="w-12 h-12 mx-auto"></ion-icon>
+      <p class="mt-2">No hay aulas registradas. <a *ngIf="canManageClassrooms()" (click)="navigateToAddClassroom()" class="text-kwd-blue-DEFAULT hover:underline">Crea una nueva.</a></p>
+    </div>
+
+    <div *ngIf="errorMessage && !isLoading" class="p-4 my-4 text-sm text-center text-red-700 bg-red-100 rounded-lg dark:text-kwd-red dark:bg-red-900/30">
+      {{ errorMessage }}
+    </div>
+
+    <div *ngIf="!isLoading && classrooms.length > 0" class="overflow-x-auto bg-white rounded-lg shadow dark:bg-kwd-darker">
+      <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead class="bg-gray-50 dark:bg-kwd-dark-accent">
+          <tr>
+            <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase dark:text-gray-300">Nombre</th>
+            <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase dark:text-gray-300">Edificio</th>
+            <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase dark:text-gray-300">Capacidad</th>
+            <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase dark:text-gray-300">Tipo</th>
+            <th scope="col" class="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase dark:text-gray-300">Recursos</th>
+            <th scope="col" class="relative px-6 py-3"><span class="sr-only">Acciones</span></th>
+          </tr>
+        </thead>
+        <tbody class="bg-white divide-y divide-gray-200 dark:bg-kwd-darker dark:divide-gray-700">
+          <tr *ngFor="let classroom of classrooms" class="hover:bg-gray-50 dark:hover:bg-kwd-dark-accent/50">
+            <td class="px-6 py-4 text-sm font-medium text-gray-900 whitespace-nowrap dark:text-kwd-light">{{ classroom.name }}</td>
+            <td class="px-6 py-4 text-sm text-gray-500 whitespace-nowrap dark:text-gray-300">{{ classroom.building?.name || classroom.buildingId || 'N/A' }}</td>
+            <td class="px-6 py-4 text-sm text-gray-500 whitespace-nowrap dark:text-gray-300">{{ classroom.capacity }}</td>
+            <td class="px-6 py-4 text-sm text-gray-500 whitespace-nowrap dark:text-gray-300">{{ classroom.type | titlecase }}</td>
+            <td class="px-6 py-4 text-sm text-gray-500 whitespace-nowrap dark:text-gray-300">{{ classroom.resources || 'N/A' }}</td>
+            <td class="px-6 py-4 text-sm font-medium text-right whitespace-nowrap">
+              <button (click)="navigateToViewAvailability(classroom.id)" class="text-kwd-blue-DEFAULT hover:text-kwd-blue-700 dark:text-kwd-blue-400 dark:hover:text-kwd-blue-300" title="Ver Disponibilidad">
+                <ion-icon name="calendar-outline" class="w-5 h-5"></ion-icon>
+              </button>
+              <button *ngIf="canManageClassrooms()" (click)="navigateToEditClassroom(classroom.id)" class="ml-3 text-indigo-600 hover:text-indigo-900 dark:text-indigo-400 dark:hover:text-indigo-300" title="Editar">
+                <ion-icon name="create-outline" class="w-5 h-5"></ion-icon>
+              </button>
+              <button *ngIf="canManageClassrooms()" (click)="confirmDelete(classroom)" class="ml-3 text-red-600 hover:text-red-800 dark:text-kwd-red dark:hover:text-red-400" title="Eliminar">
+                <ion-icon name="trash-outline" class="w-5 h-5"></ion-icon>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</ion-content>

@@ -1,0 +1,134 @@
+// src/theme/_variables.scss
+// This file defines your custom CSS variables (KWD) and Ionic's color variable overrides.
+// It does NOT import tailwind.scss itself.
+
+// Define your custom CSS variables (KWD) and Ionic's color variables.
+:root {
+  // KWD Custom Variables
+  --kwd-light: #edf2f9;
+  --kwd-dark: #152e4d;
+  --kwd-darker: #12263f;
+
+  --kwd-color-red: #dc2626;
+  --kwd-color-green: #16a34a;
+  --kwd-color-blue: #2563eb; // KWD's main blue
+  --kwd-color-cyan: #0891b2;
+  --kwd-color-teal: #0d9488;
+  --kwd-color-fuchsia: #c026d3;
+  --kwd-color-orange: #ea580c;
+  --kwd-color-yellow: #ca8a04;
+  --kwd-color-violet: #7c3aed;
+
+  /* Ionic Color Variables - Light Mode */
+  /* Map Ionic colors to your KWD colors or define them directly */
+  --ion-color-primary: var(--kwd-color-blue);
+  --ion-color-primary-rgb: 37,99,235;
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-contrast-rgb: 255,255,255;
+  --ion-color-primary-shade: #2056ce; // Slightly darker than primary
+  --ion-color-primary-tint: #3a72ec;  // Slightly lighter than primary
+
+  --ion-color-secondary: var(--kwd-color-teal);
+  --ion-color-secondary-rgb: 13,148,136;
+  --ion-color-secondary-contrast: #ffffff;
+  --ion-color-secondary-shade: #0b7469;
+  --ion-color-secondary-tint: #259186;
+
+  --ion-color-tertiary: var(--kwd-color-violet);
+  --ion-color-tertiary-rgb: 124,58,237;
+  --ion-color-tertiary-contrast: #ffffff;
+  --ion-color-tertiary-shade: #6d32d3;
+  --ion-color-tertiary-tint: #894ff0;
+
+  --ion-color-success: var(--kwd-color-green);
+  --ion-color-success-rgb: 22,163,74;
+  --ion-color-success-contrast: #ffffff;
+  --ion-color-success-shade: #138f42;
+  --ion-color-success-tint: #2dac5d;
+
+  --ion-color-warning: var(--kwd-color-yellow);
+  --ion-color-warning-rgb: 202,138,4;
+  --ion-color-warning-contrast: #000000; // Yellow often needs dark text for contrast
+  --ion-color-warning-shade: #b17903;
+  --ion-color-warning-tint: #cf961d;
+
+  --ion-color-danger: var(--kwd-color-red);
+  --ion-color-danger-rgb: 220,38,38;
+  --ion-color-danger-contrast: #ffffff;
+  --ion-color-danger-shade: #c21f1f;
+  --ion-color-danger-tint: #e03a3a;
+
+  --ion-color-light: var(--kwd-light);
+  --ion-color-light-rgb: 237,242,249;
+  --ion-color-light-contrast: var(--kwd-dark); // Dark text on light background
+
+  --ion-color-medium: #9ca3af; // A mid-gray (e.g., Tailwind gray-400)
+  --ion-color-medium-rgb: 156,163,175;
+  --ion-color-medium-contrast: #ffffff; // Or var(--kwd-dark) if needed
+
+  --ion-color-dark: var(--kwd-dark); // For dark text or elements in light mode
+  --ion-color-dark-rgb: 21,46,77;
+  --ion-color-dark-contrast: #ffffff;
+
+
+  /* Base Ionic Component Colors for Light Mode */
+  --ion-text-color: var(--kwd-dark);
+  --ion-text-color-rgb: 21,46,77;
+  --ion-background-color: var(--kwd-light); // Main background for ion-content
+  --ion-background-color-rgb: 237,242,249;
+
+  --ion-toolbar-background: #ffffff;         // Toolbar background in light mode
+  --ion-item-background: #ffffff;            // Item background in light mode
+  --ion-card-background: #ffffff;            // Card background in light mode
+  --ion-tab-bar-background: #ffffff;         // Tab bar background if used
+  --ion-border-color: #e5e7eb;              // Default border color (Tailwind gray-200)
+  --ion-color-step-150: #f3f4f6;            // A very light gray (Tailwind gray-100)
+  // Define more --ion-color-step-XXX as needed for shades
+}
+
+/* Dark Mode Overrides for Ionic Components */
+/* The .dark class on <html> or <body> is controlled by ThemeService and Tailwind */
+body.dark, :host(.dark) { // :host(.dark) for components with Shadow DOM
+
+  --ion-color-primary: #60a5fa; // Lighter blue for dark mode (e.g., kwd-blue-400)
+  --ion-color-primary-rgb: 96,165,250;
+  --ion-color-primary-contrast: #000000; // Dark text on lighter blue
+  --ion-color-primary-shade: #5490da;
+  --ion-color-primary-tint: #6eadf7; // Corrected potential typo
+
+  --ion-color-secondary: #2dd4bf; // Lighter teal (e.g., Tailwind teal-400)
+  --ion-color-secondary-rgb: 45,212,191;
+  --ion-color-secondary-contrast: #000000;
+
+  --ion-color-tertiary: #a78bfa; // Lighter violet (e.g., Tailwind violet-400)
+  --ion-color-tertiary-rgb: 167,139,250;
+  --ion-color-tertiary-contrast: #000000;
+
+  --ion-color-success: #4ade80; // Lighter green (e.g., Tailwind green-400)
+  --ion-color-warning: #facc15; // Lighter yellow (e.g., Tailwind yellow-400)
+  --ion-color-danger: #f87171;  // Lighter red (e.g., Tailwind red-400)
+
+  --ion-color-light: var(--kwd-darker); // "Light" elements in dark mode use a darker background
+  --ion-color-light-rgb: 18,38,63;
+  --ion-color-light-contrast: var(--kwd-light); // Light text on these "light" dark elements
+
+  --ion-color-medium: #4b5563; // Mid-dark gray (e.g., Tailwind gray-600)
+  --ion-color-medium-contrast: var(--kwd-light);
+
+  --ion-color-dark: var(--kwd-light); // "Dark" text in dark mode is actually light
+  --ion-color-dark-rgb: 237,242,249;
+  --ion-color-dark-contrast: var(--kwd-darker);
+
+  /* Base Ionic Component Colors for Dark Mode */
+  --ion-text-color: var(--kwd-light);
+  --ion-text-color-rgb: 237,242,249;
+  --ion-background-color: var(--kwd-dark); // Main background for ion-content
+  --ion-background-color-rgb: 21,46,77;
+
+  --ion-toolbar-background: var(--kwd-darker);
+  --ion-item-background: var(--kwd-darker);
+  --ion-tab-bar-background: var(--kwd-darker);
+  --ion-card-background: var(--kwd-darker);
+  --ion-border-color: #374151; // Darker border color (e.g., Tailwind gray-700)
+  --ion-color-step-150: #2d3748; // A darker gray step
+}

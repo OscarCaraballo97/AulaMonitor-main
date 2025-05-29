@@ -1,0 +1,79 @@
+<ion-header>
+  <ion-toolbar color="primary" class="dark:bg-kwd-darker">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/login" class="dark:text-kwd-light"></ion-back-button>
+    </ion-buttons>
+    <ion-title class="dark:text-kwd-light">Registro de Nuevo Usuario</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding bg-kwd-light dark:bg-kwd-dark flex items-center justify-center min-h-full">
+  <div class="w-full max-w-md p-6 md:p-8 space-y-6 bg-white rounded-lg shadow-xl dark:bg-kwd-darker">
+    <div>
+      <h2 class="text-2xl font-bold text-center text-gray-900 dark:text-kwd-light">
+        Crear una cuenta
+      </h2>
+    </div>
+    <form [formGroup]="registerForm" (ngSubmit)="onSubmit()" class="mt-6 space-y-4">
+      <ion-item lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
+        <ion-label position="floating" class="text-gray-700 dark:text-gray-300">Nombre Completo</ion-label>
+        <ion-input type="text" formControlName="name" required class="text-gray-900 dark:text-kwd-light"></ion-input>
+      </ion-item>
+      <div *ngIf="registerForm.get('name')?.invalid && registerForm.get('name')?.touched" class="mt-1 text-xs text-red-600 dark:text-kwd-red">
+        <small *ngIf="registerForm.get('name')?.errors?.['required']">El nombre es requerido.</small>
+      </div>
+
+      <ion-item lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
+        <ion-label position="floating" class="text-gray-700 dark:text-gray-300">Email</ion-label>
+        <ion-input type="email" formControlName="email" required class="text-gray-900 dark:text-kwd-light"></ion-input>
+      </ion-item>
+      <div *ngIf="registerForm.get('email')?.invalid && registerForm.get('email')?.touched" class="mt-1 text-xs text-red-600 dark:text-kwd-red">
+        <small *ngIf="registerForm.get('email')?.errors?.['required']">Email es requerido.</small>
+        <small *ngIf="registerForm.get('email')?.errors?.['email']">Formato de email inválido.</small>
+      </div>
+
+      <ion-item lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
+        <ion-label position="floating" class="text-gray-700 dark:text-gray-300">Contraseña</ion-label>
+        <ion-input type="password" formControlName="password" required class="text-gray-900 dark:text-kwd-light"></ion-input>
+      </ion-item>
+      <div *ngIf="registerForm.get('password')?.invalid && registerForm.get('password')?.touched" class="mt-1 text-xs text-red-600 dark:text-kwd-red">
+        <small *ngIf="registerForm.get('password')?.errors?.['required']">Contraseña es requerida.</small>
+        <small *ngIf="registerForm.get('password')?.errors?.['minlength']">Mínimo 6 caracteres.</small>
+      </div>
+
+      <ion-item lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
+        <ion-label position="floating" class="text-gray-700 dark:text-gray-300">Confirmar Contraseña</ion-label>
+        <ion-input type="password" formControlName="confirmPassword" required class="text-gray-900 dark:text-kwd-light"></ion-input>
+      </ion-item>
+      <div *ngIf="registerForm.get('confirmPassword')?.invalid && registerForm.get('confirmPassword')?.touched" class="mt-1 text-xs text-red-600 dark:text-kwd-red">
+        <small *ngIf="registerForm.get('confirmPassword')?.errors?.['required']">Confirmación de contraseña es requerida.</small>
+      </div>
+      <div *ngIf="registerForm.errors?.['passwordMismatch'] && (registerForm.get('confirmPassword')?.touched || registerForm.get('password')?.touched)" class="mt-1 text-xs text-red-600 dark:text-kwd-red">
+        <small>Las contraseñas no coinciden.</small>
+      </div>
+      
+      <ion-item lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
+        <ion-label position="stacked" class="text-gray-700 dark:text-gray-300">Rol (Solo Desarrollo)</ion-label>
+        <ion-select formControlName="role" interface="popover" class="text-gray-900 dark:text-kwd-light">
+          <ion-select-option [value]="RolEnum.ESTUDIANTE">Estudiante</ion-select-option>
+          <ion-select-option [value]="RolEnum.PROFESOR">Profesor</ion-select-option>
+          <ion-select-option [value]="RolEnum.COORDINADOR">Coordinador</ion-select-option>
+          </ion-select>
+      </ion-item>
+
+      <div *ngIf="errorMessage" class="p-3 mt-2 text-sm text-center text-red-700 bg-red-100 rounded-md dark:text-kwd-red dark:bg-red-900/30">
+        {{ errorMessage }}
+      </div>
+
+      <ion-button type="submit" expand="block" class="mt-6 text-white bg-kwd-blue-DEFAULT hover:bg-kwd-blue-700 dark:bg-kwd-blue-600 dark:hover:bg-kwd-blue-700" [disabled]="registerForm.invalid || isLoading">
+        <ion-spinner *ngIf="isLoading" name="dots" class="mr-2"></ion-spinner>
+        Registrarse
+      </ion-button>
+    </form>
+    <p class="mt-4 text-sm text-center">
+      <a routerLink="/login" class="font-medium text-kwd-blue-DEFAULT hover:text-kwd-blue-500 dark:text-kwd-blue-400 dark:hover:text-kwd-blue-300">
+        ¿Ya tienes una cuenta? Inicia sesión
+      </a>
+    </p>
+  </div>
+</ion-content>

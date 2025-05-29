@@ -1,0 +1,73 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/app/users"></ion-back-button>
+    </ion-buttons>
+    <ion-title>{{ pageTitle }}</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <form [formGroup]="userForm" (ngSubmit)="onSubmit()" *ngIf="userForm" class="max-w-lg mx-auto bg-white dark:bg-kwd-darker p-6 rounded-lg shadow-md">
+    <ion-item lines="full" class="mb-4 rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark dark:text-kwd-light focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
+      <ion-label position="stacked" class="text-gray-700 dark:text-gray-300">Nombre Completo <span class="text-red-500">*</span></ion-label>
+      <ion-input type="text" formControlName="name" class="text-gray-900 dark:text-kwd-light"></ion-input>
+    </ion-item>
+    <div *ngIf="userForm.get('name')?.invalid && userForm.get('name')?.touched" class="text-xs text-red-600 dark:text-kwd-red mb-3 px-1">
+      <small *ngIf="userForm.get('name')?.errors?.['required']">El nombre es requerido.</small>
+      <small *ngIf="userForm.get('name')?.errors?.['minlength']">Mínimo 3 caracteres.</small>
+    </div>
+
+    <ion-item lines="full" class="mb-4 rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark dark:text-kwd-light focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
+      <ion-label position="stacked" class="text-gray-700 dark:text-gray-300">Correo Electrónico <span class="text-red-500">*</span></ion-label>
+      <ion-input type="email" formControlName="email" class="text-gray-900 dark:text-kwd-light"></ion-input>
+    </ion-item>
+    <div *ngIf="userForm.get('email')?.invalid && userForm.get('email')?.touched" class="text-xs text-red-600 dark:text-kwd-red mb-3 px-1">
+      <small *ngIf="userForm.get('email')?.errors?.['required']">El correo es requerido.</small>
+      <small *ngIf="userForm.get('email')?.errors?.['email']">Formato de correo inválido.</small>
+    </div>
+
+    <ion-item lines="full" class="mb-4 rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark dark:text-kwd-light focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
+      <ion-label position="stacked" class="text-gray-700 dark:text-gray-300">
+        Contraseña <span *ngIf="!isEditMode" class="text-red-500">*</span>
+        <span *ngIf="isEditMode" class="text-xs text-gray-500">(Dejar vacío para no cambiar)</span>
+      </ion-label>
+      <ion-input type="password" formControlName="password" class="text-gray-900 dark:text-kwd-light"></ion-input>
+    </ion-item>
+    <div *ngIf="userForm.get('password')?.invalid && userForm.get('password')?.touched" class="text-xs text-red-600 dark:text-kwd-red mb-3 px-1">
+      <small *ngIf="userForm.get('password')?.errors?.['required'] && !isEditMode">La contraseña es requerida.</small>
+      <small *ngIf="userForm.get('password')?.errors?.['minlength']">Mínimo 6 caracteres.</small>
+    </div>
+
+    <ion-item lines="full" class="mb-4 rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark dark:text-kwd-light focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
+      <ion-label position="stacked" class="text-gray-700 dark:text-gray-300">Rol <span class="text-red-500">*</span></ion-label>
+      <ion-select formControlName="role" interface="popover" placeholder="Seleccionar Rol"
+                  class="text-gray-900 dark:text-kwd-light"
+                  [disabled]="isEditMode && loggedInUserRole !== RolEnum.ADMIN">
+        <ion-select-option *ngFor="let roleOpt of rolesForSelect" [value]="roleOpt.value">
+          {{ roleOpt.key | titlecase }}
+        </ion-select-option>
+      </ion-select>
+    </ion-item>
+    <div *ngIf="userForm.get('role')?.invalid && userForm.get('role')?.touched" class="text-xs text-red-600 dark:text-kwd-red mb-3 px-1">
+      <small *ngIf="userForm.get('role')?.errors?.['required']">El rol es requerido.</small>
+    </div>
+
+    <ion-item lines="full" class="mb-4 rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark dark:text-kwd-light focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
+      <ion-label position="stacked" class="text-gray-700 dark:text-gray-300">URL del Avatar (Opcional)</ion-label>
+      <ion-input type="url" formControlName="avatarUrl" class="text-gray-900 dark:text-kwd-light"></ion-input>
+    </ion-item>
+
+    <div class="flex flex-col sm:flex-row justify-end pt-4 space-y-3 sm:space-y-0 sm:space-x-3">
+      <button type="button" (click)="cancel()"
+              class="w-full sm:w-auto inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-kwd-blue-500 dark:bg-kwd-dark-light dark:text-gray-300 dark:border-gray-600 dark:hover:bg-kwd-dark">
+        Cancelar
+      </button>
+      <button type="submit" [disabled]="userForm.invalid || isLoading"
+              class="w-full sm:w-auto inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-kwd-blue-DEFAULT text-base font-medium text-white hover:bg-kwd-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-kwd-blue-500 disabled:opacity-50 dark:bg-kwd-blue-600 dark:hover:bg-kwd-blue-500 dark:focus:ring-kwd-blue-700">
+        <ion-spinner *ngIf="isLoading" name="dots" class="mr-2"></ion-spinner>
+        {{ isEditMode ? 'Actualizar Usuario' : 'Crear Usuario' }}
+      </button>
+    </div>
+  </form>
+</ion-content>

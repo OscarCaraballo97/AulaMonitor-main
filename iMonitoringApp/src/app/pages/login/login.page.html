@@ -1,0 +1,43 @@
+<ion-content class="ion-padding bg-kwd-light dark:bg-kwd-dark flex items-center justify-center min-h-full">
+  <div class="w-full max-w-md p-8 space-y-8 bg-white rounded-lg shadow-xl dark:bg-kwd-darker">
+    <div>
+      <h2 class="text-3xl font-extrabold text-center text-gray-900 dark:text-kwd-light">
+        IMonitoring
+      </h2>
+      <p class="mt-2 text-sm text-center text-gray-600 dark:text-gray-400">
+        Inicia sesión en tu cuenta
+      </p>
+    </div>
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="mt-8 space-y-6">
+      <ion-item lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
+        <ion-label position="floating" class="text-gray-700 dark:text-gray-300">Email</ion-label>
+        <ion-input type="email" formControlName="email" required autocomplete="email" class="text-gray-900 dark:text-kwd-light"></ion-input>
+      </ion-item>
+      <div *ngIf="loginForm.get('email')?.invalid && loginForm.get('email')?.touched" class="mt-1 text-xs text-red-600 dark:text-kwd-color-red">
+        <small *ngIf="loginForm.get('email')?.errors?.['required']">Email es requerido.</small>
+        <small *ngIf="loginForm.get('email')?.errors?.['email']">Formato de email inválido.</small>
+      </div>
+
+      <ion-item lines="none" class="mt-4 rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
+        <ion-label position="floating" class="text-gray-700 dark:text-gray-300">Contraseña</ion-label>
+        <ion-input type="password" formControlName="password" required class="text-gray-900 dark:text-kwd-light"></ion-input>
+      </ion-item>
+       <div *ngIf="loginForm.get('password')?.invalid && loginForm.get('password')?.touched" class="mt-1 text-xs text-red-600 dark:text-kwd-color-red">
+        <small *ngIf="loginForm.get('password')?.errors?.['required']">Contraseña es requerida.</small>
+      </div>
+
+      <div *ngIf="errorMessage" class="p-3 mt-4 text-sm text-center text-red-700 bg-red-100 rounded-md dark:text-kwd-color-red dark:bg-red-900/30">
+        {{ errorMessage }}
+      </div>
+
+      <ion-button type="submit" expand="block" class="mt-6 text-white bg-kwd-blue-DEFAULT hover:bg-kwd-blue-700 dark:bg-kwd-blue-600 dark:hover:bg-kwd-blue-700" [disabled]="loginForm.invalid">
+        Ingresar
+      </ion-button>
+    </form>
+    <p class="mt-6 text-sm text-center">
+      <a routerLink="/register" class="font-medium text-kwd-blue-DEFAULT hover:text-kwd-blue-500 dark:text-kwd-blue-400 dark:hover:text-kwd-blue-300">
+        ¿No tienes una cuenta? Regístrate
+      </a>
+    </p>
+  </div>
+</ion-content>

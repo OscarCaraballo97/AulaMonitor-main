@@ -1,0 +1,99 @@
+<ion-header class="md:hidden">
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/app/classrooms"></ion-back-button>
+    </ion-buttons>
+    <ion-title>{{ pageTitle }}</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-header class="hidden md:block sticky top-0 z-10">
+  <ion-toolbar color="light">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/app/classrooms"></ion-back-button>
+    </ion-buttons>
+    <ion-title>{{ pageTitle }}</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <div class="p-4 md:p-6 lg:p-8">
+    <div class="max-w-2xl mx-auto">
+
+      <div *ngIf="isLoadingInitialData" class="text-center py-20">
+        <ion-spinner name="crescent" color="primary"></ion-spinner>
+        <p class="mt-4 text-gray-500 dark:text-gray-400">Cargando formulario...</p>
+      </div>
+
+      <form [formGroup]="classroomForm" (ngSubmit)="onSubmit()" *ngIf="!isLoadingInitialData && classroomForm"
+            class="space-y-6 bg-white p-6 rounded-lg shadow dark:bg-kwd-darker">
+
+        <ion-item lines="full" class="rounded-md">
+          <ion-label position="stacked">Nombre del Aula <span class="text-red-500">*</span></ion-label>
+          <ion-input formControlName="name" type="text" placeholder="Ej: Salón 101, Laboratorio B"></ion-input>
+        </ion-item>
+        <div *ngIf="classroomForm.get('name')?.invalid && classroomForm.get('name')?.touched" class="text-xs text-red-500 px-4 py-1">
+            <small *ngIf="classroomForm.get('name')?.errors?.['required']">El nombre es requerido.</small>
+            <small *ngIf="classroomForm.get('name')?.errors?.['minlength']">Mínimo 3 caracteres.</small>
+        </div>
+
+        <ion-item lines="full" class="rounded-md">
+          <ion-label position="stacked">Capacidad <span class="text-red-500">*</span></ion-label>
+          <ion-input formControlName="capacity" type="number" placeholder="Ej: 30"></ion-input>
+        </ion-item>
+         <div *ngIf="classroomForm.get('capacity')?.invalid && classroomForm.get('capacity')?.touched" class="text-xs text-red-500 px-4 py-1">
+            <small *ngIf="classroomForm.get('capacity')?.errors?.['required']">La capacidad es requerida.</small>
+            <small *ngIf="classroomForm.get('capacity')?.errors?.['min']">La capacidad debe ser al menos 1.</small>
+        </div>
+
+        <ion-item lines="full" class="rounded-md">
+          <ion-label position="stacked">Tipo de Aula <span class="text-red-500">*</span></ion-label>
+          <ion-select formControlName="type" interface="popover" placeholder="Seleccionar tipo">
+            <ion-select-option *ngFor="let typeEntry of ClassroomTypeEnum | keyvalue" [value]="typeEntry.value">
+              {{ typeEntry.value | titlecase }}
+            </ion-select-option>
+          </ion-select>
+        </ion-item>
+        <div *ngIf="classroomForm.get('type')?.invalid && classroomForm.get('type')?.touched" class="text-xs text-red-500 px-4 py-1">
+            <small *ngIf="classroomForm.get('type')?.errors?.['required']">El tipo de aula es requerido.</small>
+        </div>
+
+        <ion-item lines="full" class="rounded-md">
+          <ion-label position="stacked">Recursos</ion-label>
+          <ion-textarea formControlName="resources" auto-grow placeholder="Ej: Proyector, Aire acondicionado..."></ion-textarea>
+        </ion-item>
+
+        <ion-item lines="full" class="rounded-md">
+          <ion-label position="stacked">Edificio <span class="text-red-500">*</span></ion-label>
+          <ion-select formControlName="buildingId" interface="popover" placeholder="Seleccionar edificio">
+            <ion-select-option *ngFor="let building of buildings" [value]="building.id">
+              {{ building.name }}
+            </ion-select-option>
+          </ion-select>
+        </ion-item>
+        <div *ngIf="classroomForm.get('buildingId')?.invalid && classroomForm.get('buildingId')?.touched" class="text-xs text-red-500 px-4 py-1">
+            <small *ngIf="classroomForm.get('buildingId')?.errors?.['required']">El edificio es requerido.</small>
+        </div>
+        <div *ngIf="!isLoadingInitialData && buildings.length === 0 && userRole === RolEnum.ADMIN" class="text-xs text-orange-500 px-4 py-1">
+          <small>No hay edificios disponibles. Por favor, crea un edificio primero.</small>
+        </div>
+
+
+        <div class="flex flex-col sm:flex-row justify-end pt-4 space-y-3 sm:space-y-0 sm:space-x-3">
+          <ion-button type="button" fill="outline" (click)="cancel()" color="medium" class="dark:text-gray-300 dark:border-gray-600">
+            Cancelar
+          </ion-button>
+          <ion-button expand="block" type="submit" [disabled]="isLoading || classroomForm.invalid || (buildings.length === 0 && userRole === RolEnum.ADMIN && !isEditMode)" color="primary" class="w-full sm:w-auto">
+            <ion-spinner *ngIf="isLoading" name="dots" class="mr-2"></ion-spinner>
+            {{ isEditMode ? 'Actualizar Aula' : 'Crear Aula' }}
+          </ion-button>
+        </div>
+      </form>
+      
+      <div *ngIf="!isLoadingInitialData && userRole !== RolEnum.ADMIN" class="text-center py-20 text-red-500">
+        <p>No tienes permisos para acceder a esta sección.</p>
+      </div>
+
+    </div>
+  </div>
+</ion-content>

@@ -1,0 +1,28 @@
+@use "./theme/tailwind.scss" as tailwind;
+@use "./theme/variables" as *;
+
+// Ionic CSS imports (se mantienen como @import porque son CSS plano)
+@import "@ionic/angular/css/core.css";
+@import "@ionic/angular/css/normalize.css";
+@import "@ionic/angular/css/structure.css";
+@import "@ionic/angular/css/typography.css";
+@import '@ionic/angular/css/display.css';
+@import "@ionic/angular/css/padding.css";
+@import "@ionic/angular/css/float-elements.css";
+@import "@ionic/angular/css/text-alignment.css";
+@import "@ionic/angular/css/text-transformation.css";
+@import "@ionic/angular/css/flex-utils.css";
+
+/* Estilos globales personalizados */
+.kwd-toast-success {
+  --background: var(--ion-color-success, var(--kwd-color-green));
+  --color: var(--ion-color-success-contrast, white);
+}
+.kwd-toast-danger {
+  --background: var(--ion-color-danger, var(--kwd-color-red));
+  --color: var(--ion-color-danger-contrast, white);
+}
+.kwd-toast-warning {
+  --background: var(--ion-color-warning, var(--kwd-color-yellow));
+  --color: var(--ion-color-warning-contrast, black);
+}

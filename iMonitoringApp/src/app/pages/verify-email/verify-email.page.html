@@ -1,0 +1,48 @@
+<ion-header [translucent]="true">
+  <ion-toolbar color="primary">
+    <ion-title>Verificación de Correo</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <div class="container ion-text-center">
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>
+          <ng-container [ngSwitch]="verificationStatus">
+            <span *ngSwitchCase="'verifying'">Verificando Correo</span>
+            <span *ngSwitchCase="'success'">¡Correo Verificado!</span>
+            <span *ngSwitchCase="'error'">Error de Verificación</span>
+          </ng-container>
+        </ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-spinner *ngIf="verificationStatus === 'verifying'" name="dots" color="primary"></ion-spinner>
+        <ion-icon *ngIf="verificationStatus === 'success'" name="checkmark-circle-outline" color="success" class="status-icon"></ion-icon>
+        <ion-icon *ngIf="verificationStatus === 'error'" name="alert-circle-outline" color="danger" class="status-icon"></ion-icon>
+        <p class="ion-margin-top">{{ message }}</p>
+        <ion-button
+          *ngIf="verificationStatus === 'success' || verificationStatus === 'error'"
+          expand="block"
+          (click)="navigateToLogin()"
+          class="ion-margin-top">
+          Ir a Iniciar Sesión
+        </ion-button>
+      </ion-card-content>
+    </ion-card>
+  </div>
+</ion-content>
+
+<style>
+  .container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+  }
+  .status-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+  }
+</style>
