@@ -1,5 +1,5 @@
 package com.backend.IMonitoring.model;
-import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -7,32 +7,34 @@ import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
-
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import java.time.LocalDateTime;
 
 @Entity
-@Data
+@Data 
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 @Table(name = "reservation")
 public class Reservation {
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "classroom_id", nullable = false)
+    @JsonManagedReference("classroom-reservations")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    @JsonBackReference("classroom-reservations")
     private Classroom classroom;
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonManagedReference("user-reservations")
     @ToString.Exclude
     @EqualsAndHashCode.Exclude
-    @JsonBackReference("user-reservations")
     private User user;
 
     @Column(nullable = false)
@@ -45,5 +47,14 @@ public class Reservation {
     @Column(nullable = false)
     private ReservationStatus status;
 
+    @Column(length = 1000)
     private String purpose;
+
+    @CreationTimestamp
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
 }

@@ -6,11 +6,11 @@ import com.backend.IMonitoring.dto.ClassroomRequestDTO;
 import com.backend.IMonitoring.model.Classroom;
 import com.backend.IMonitoring.model.ClassroomType;
 import com.backend.IMonitoring.model.Building;
-import com.backend.IMonitoring.model.Reservation; 
+import com.backend.IMonitoring.model.Reservation;
 import com.backend.IMonitoring.repository.ClassroomRepository;
 import com.backend.IMonitoring.repository.BuildingRepository;
 import com.backend.IMonitoring.repository.ReservationRepository;
-import com.backend.IMonitoring.exceptions.ResourceNotFoundException; 
+import com.backend.IMonitoring.exceptions.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -28,7 +28,7 @@ public class ClassroomService {
     private final ReservationRepository reservationRepository;
 
     public List<Classroom> getAllClassrooms() {
-        return classroomRepository.findAll();
+        return classroomRepository.findAll(Sort.by(Sort.Direction.ASC, "name"));
     }
 
     public Classroom getClassroomById(String id) {
@@ -53,8 +53,7 @@ public class ClassroomService {
 
     @Transactional
     public Classroom updateClassroomFromDTO(String classroomId, ClassroomRequestDTO dto) {
-        Classroom classroomToUpdate = getClassroomById(classroomId); 
-
+        Classroom classroomToUpdate = getClassroomById(classroomId);
         Building building = buildingRepository.findById(dto.getBuildingId())
                 .orElseThrow(() -> new ResourceNotFoundException("Edificio no encontrado con ID: " + dto.getBuildingId() + " al actualizar aula."));
 
@@ -62,8 +61,7 @@ public class ClassroomService {
         classroomToUpdate.setCapacity(dto.getCapacity());
         classroomToUpdate.setType(dto.getType());
         classroomToUpdate.setResources(dto.getResources());
-        classroomToUpdate.setBuilding(building); 
-
+        classroomToUpdate.setBuilding(building);
         return classroomRepository.save(classroomToUpdate);
     }
 
@@ -72,20 +70,20 @@ public class ClassroomService {
         if (!classroomRepository.existsById(id)) {
             throw new ResourceNotFoundException("Aula no encontrada con ID: " + id + " para eliminar.");
         }
-        List<Reservation> reservationsInClassroom = reservationRepository.findByClassroomId(id, Sort.by("id")); // o Sort.unsorted()
+        List<Reservation> reservationsInClassroom = reservationRepository.findByClassroomId(id, Sort.unsorted());
         if (reservationsInClassroom != null && !reservationsInClassroom.isEmpty()) {
-             reservationRepository.deleteAll(reservationsInClassroom);
+            reservationRepository.deleteAll(reservationsInClassroom);
         }
         classroomRepository.deleteById(id);
     }
-    
+
     public List<Classroom> getClassroomsByType(ClassroomType type) {
         return classroomRepository.findByType(type);
     }
 
     public List<Classroom> getClassroomsByMinCapacity(Integer minCapacity) {
         if (minCapacity == null || minCapacity < 0) {
-            throw new IllegalArgumentException("La capacidad mínima debe ser un número positivo.");
+            throw new IllegalArgumentException("La capacidad mínima debe ser un número positivo o cero.");
         }
         return classroomRepository.findByCapacityGreaterThanEqual(minCapacity);
     }
@@ -97,28 +95,30 @@ public class ClassroomService {
     public List<Classroom> getUnavailableNow() {
         return classroomRepository.findUnavailableNow(LocalDateTime.now());
     }
-    
+
     public boolean checkAvailability(AvailabilityRequest request) {
         if (request == null || request.getClassroomId() == null || request.getStartTime() == null || request.getEndTime() == null) {
             throw new IllegalArgumentException("Datos incompletos para verificar disponibilidad.");
         }
-        return classroomRepository.isAvailable(
-            request.getClassroomId(),
-            request.getStartTime(),
-            request.getEndTime()
+        return classroomRepository.isAvailableConsideringAllStatuses(
+                request.getClassroomId(),
+                request.getStartTime(),
+                request.getEndTime()
         );
     }
 
     public ClassroomAvailabilitySummaryDTO getAvailabilitySummary() {
-        LocalDateTime now = LocalDateTime.now();
-        List<Classroom> available = classroomRepository.findAvailableNow(now);
-        List<Classroom> unavailable = classroomRepository.findUnavailableNow(now);
+    
+        List<Classroom> available = this.getAvailableNow(); 
+        List<Classroom> unavailable = this.getUnavailableNow();
         long total = classroomRepository.count();
         return new ClassroomAvailabilitySummaryDTO(available.size(), unavailable.size(), (int) total);
     }
 
     public List<Reservation> getClassroomReservationsForDateRange(String classroomId, LocalDateTime startDate, LocalDateTime endDate) {
-        getClassroomById(classroomId); 
+        if (!classroomRepository.existsById(classroomId)) {
+            throw new ResourceNotFoundException("Aula no encontrada con ID: " + classroomId);
+        }
         return reservationRepository.findByClassroomIdAndStartTimeBetween(classroomId, startDate, endDate, Sort.by(Sort.Direction.ASC, "startTime"));
     }
 }

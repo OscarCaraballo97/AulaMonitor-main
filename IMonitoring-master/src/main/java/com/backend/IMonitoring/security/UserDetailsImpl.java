@@ -58,7 +58,7 @@ public class UserDetailsImpl implements UserDetails {
         return this.user.getName();
     }
 
-    public Rol getRole() {
+    public Rol getRoleEnum() { 
         return this.user.getRole();
     }
 }

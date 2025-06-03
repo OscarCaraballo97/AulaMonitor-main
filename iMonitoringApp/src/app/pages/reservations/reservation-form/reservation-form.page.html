@@ -1,7 +1,7 @@
 <ion-header>
   <ion-toolbar color="primary" class="dark:bg-kwd-darker">
     <ion-buttons slot="start">
-      <ion-back-button defaultHref="/app/reservations/my-list"></ion-back-button>
+      <ion-back-button defaultHref="/app/reservations/my-list" class="dark:text-kwd-light"></ion-back-button>
     </ion-buttons>
     <ion-title class="dark:text-kwd-light">{{ pageTitle }}</ion-title>
   </ion-toolbar>
@@ -30,20 +30,24 @@
         <small *ngIf="reservationForm.get('classroomId')?.errors?.['required']">El aula es requerida.</small>
       </div>
 
-      <ion-item *ngIf="userRole === RolEnum.COORDINADOR && !isEditMode" lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark dark:text-kwd-light focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
-        <ion-label position="stacked" class="text-gray-700 dark:text-gray-300">Reservar para Estudiante <span class="text-red-500">*</span></ion-label>
-        <ion-select formControlName="userId" interface="popover" placeholder="Seleccionar Estudiante"
+      <ion-item *ngIf="(userRole === RolEnum.COORDINADOR || userRole === RolEnum.ADMIN)" lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark dark:text-kwd-light focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
+        <ion-label position="stacked" class="text-gray-700 dark:text-gray-300">
+          Reservar para Usuario 
+          <span *ngIf="userRole === RolEnum.COORDINADOR && !isEditMode" class="text-red-500">*</span>
+          <span *ngIf="userRole === RolEnum.ADMIN && !isEditMode">(Opcional, por defecto tú)</span>
+        </ion-label>
+        <ion-select formControlName="userId" interface="popover" placeholder="Seleccionar Usuario"
                     class="text-gray-900 dark:text-kwd-light"
                     [ngClass]="{'ion-invalid ion-touched': reservationForm.get('userId')?.invalid && reservationForm.get('userId')?.touched}">
-          <ion-select-option *ngFor="let student of studentUsers" [value]="student.id">
-            {{ student.name }} ({{ student.email }})
+          <ion-select-option *ngIf="userRole === RolEnum.ADMIN && !isEditMode" [value]="null">-- Para mí (Admin) --</ion-select-option>
+          <ion-select-option *ngFor="let user of assignableUsers" [value]="user.id">
+            {{ user.name }} ({{ user.email }})
           </ion-select-option>
         </ion-select>
       </ion-item>
-      <div *ngIf="userRole === RolEnum.COORDINADOR && !isEditMode && reservationForm.get('userId')?.invalid && reservationForm.get('userId')?.touched" class="text-xs text-red-600 dark:text-kwd-red mt-1 px-4">
-        <small *ngIf="reservationForm.get('userId')?.errors?.['required']">Es requerido seleccionar un estudiante.</small>
+      <div *ngIf="(userRole === RolEnum.COORDINADOR && !isEditMode && reservationForm.get('userId')?.invalid && reservationForm.get('userId')?.touched) || (userRole === RolEnum.ADMIN && reservationForm.get('userId')?.invalid && reservationForm.get('userId')?.touched && !isEditMode && reservationForm.get('userId')?.value !== null)" class="text-xs text-red-600 dark:text-kwd-red mt-1 px-4">
+        <small *ngIf="reservationForm.get('userId')?.errors?.['required']">Es requerido seleccionar un usuario.</small>
       </div>
-
 
       <ion-item lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark dark:text-kwd-light focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
         <ion-label position="stacked" class="text-gray-700 dark:text-gray-300">Fecha <span class="text-red-500">*</span></ion-label>
@@ -55,85 +59,32 @@
           </ion-select-option>
         </ion-select>
       </ion-item>
-      <div *ngIf="selectableDates.length === 0 && !isLoadingInitialData" class="text-xs text-orange-600 dark:text-kwd-orange mt-1 px-4">
-          <small>No hay fechas disponibles para seleccionar en este momento.</small>
-      </div>
-      <div *ngIf="reservationForm.get('reservationDateControl')?.invalid && reservationForm.get('reservationDateControl')?.touched" class="text-xs text-red-600 dark:text-kwd-red mt-1 px-4">
-        <small *ngIf="reservationForm.get('reservationDateControl')?.errors?.['required']">La fecha es requerida.</small>
-      </div>
-
-      <div *ngIf="reservationForm.get('classroomId')?.value && reservationForm.get('reservationDateControl')?.value">
-        <h3 class="font-medium text-gray-700 dark:text-gray-300 mt-4 mb-2 px-4">Horas de Inicio Disponibles ({{ datePipe.transform(selectedDateForTimeSlots, 'EEEE, d MMMM', undefined, 'es-CO') }}):</h3>
-        <div *ngIf="isLoadingTimes" class="text-center py-4">
-          <ion-spinner name="dots" color="primary"></ion-spinner>
-          <p class="text-gray-500 dark:text-gray-400">Cargando horarios...</p>
-        </div>
-        <div *ngIf="!isLoadingTimes && availableStartTimes.length === 0" class="p-4 bg-gray-100 dark:bg-kwd-dark rounded text-center text-gray-500 dark:text-gray-400">
-          No hay horarios disponibles para la fecha y aula seleccionadas.
-        </div>
-        <div *ngIf="!isLoadingTimes && availableStartTimes.length > 0" class="grid grid-cols-3 sm:grid-cols-4 gap-2 p-2">
-          <ion-button
-            *ngFor="let slot of availableStartTimes"
-            fill="outline"
-            size="small"
-            [color]="reservationForm.get('startTime')?.value === slot.value ? 'primary' : 'medium'"
-            (click)="onStartTimeSelected(slot.value)"
-            class="dark:text-kwd-light dark:border-gray-600"
-            [class.selected-time-slot]="reservationForm.get('startTime')?.value === slot.value">
-            {{ slot.display }}
-          </ion-button>
-        </div>
-      </div>
-      <div *ngIf="reservationForm.get('startTime')?.invalid && reservationForm.get('startTime')?.touched && !isLoadingTimes && (availableStartTimes.length > 0 || isEditMode)" class="text-xs text-red-600 dark:text-kwd-red mt-1 px-4">
-        <small *ngIf="reservationForm.get('startTime')?.errors?.['required']">La hora de inicio es requerida.</small>
-      </div>
-
-      <ion-item *ngIf="reservationForm.get('endTime')?.value" lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark dark:text-kwd-light">
-        <ion-label position="stacked" class="text-gray-700 dark:text-gray-300">Hora de Finalización</ion-label>
-        <ion-input
-          [value]="datePipe.transform(reservationForm.get('endTime')?.value, 'HH:mm', undefined, 'es-CO')"
-          readonly
-          class="text-gray-900 dark:text-kwd-light">
-        </ion-input>
-      </ion-item>
-      <div *ngIf="reservationForm.hasError('invalidDateTimeOrder') && reservationForm.get('endTime')?.touched" class="text-xs text-red-600 dark:text-kwd-red mt-1 px-4">
-        <small>La hora de finalización debe ser posterior a la hora de inicio.</small>
-      </div>
-
       <ion-item lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark dark:text-kwd-light focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
-        <ion-label position="stacked" class="text-gray-700 dark:text-gray-300">Propósito</ion-label>
+        <ion-label position="stacked" class="text-gray-700 dark:text-gray-300">Duración <span class="text-red-500">*</span></ion-label>
+        <ion-select formControlName="durationBlocks" interface="popover" placeholder="Selecciona duración"
+                    class="text-gray-900 dark:text-kwd-light"
+                    [ngClass]="{'ion-invalid ion-touched': reservationForm.get('durationBlocks')?.invalid && reservationForm.get('durationBlocks')?.touched}">
+          <ion-select-option *ngFor="let duration of availableDurations" [value]="duration.value">
+            {{ duration.display }}
+          </ion-select-option>
+        </ion-select>
+      </ion-item>
+      <div *ngIf="reservationForm.get('classroomId')?.value && reservationForm.get('reservationDateControl')?.value && reservationForm.get('durationBlocks')?.value">
+         </div>
+       <ion-item *ngIf="reservationForm.get('endTime')?.value && !reservationForm.get('endTime')?.hasError('slotUnavailable')" lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark dark:text-kwd-light">
+         </ion-item>
+      <ion-item lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark dark:text-kwd-light focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
+        <ion-label position="stacked" class="text-gray-700 dark:text-gray-300">Propósito <span class="text-red-500">*</span></ion-label>
         <ion-textarea formControlName="purpose" rows="3" placeholder="Ej: Clase de cálculo, Tutoría de física..."
                       class="text-gray-900 dark:text-kwd-light"></ion-textarea>
       </ion-item>
       <div *ngIf="reservationForm.get('purpose')?.invalid && reservationForm.get('purpose')?.touched" class="text-xs text-red-600 dark:text-kwd-red mt-1 px-4">
+        <small *ngIf="reservationForm.get('purpose')?.errors?.['required']">El propósito es requerido.</small>
         <small *ngIf="reservationForm.get('purpose')?.errors?.['maxLength']">El propósito no debe exceder los 255 caracteres.</small>
       </div>
 
-      <div *ngIf="userRole === RolEnum.ADMIN" class="space-y-4 mt-4">
-        <ion-item *ngIf="isEditMode && reservationOwnerName" lines="none" class="rounded-md bg-gray-100 dark:bg-kwd-dark-light">
-          <ion-label position="stacked" class="text-gray-600 dark:text-gray-400">Reserva a nombre de:</ion-label>
-          <ion-input [value]="reservationOwnerName" readonly class="text-gray-800 dark:text-kwd-light"></ion-input>
-        </ion-item>
-        <ion-item lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark dark:text-kwd-light focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
-          <ion-label position="stacked" class="text-gray-700 dark:text-gray-300">
-            ID de Usuario
-            <span *ngIf="!isEditMode">(Opcional, si se deja vacío se asigna al Admin actual)</span>
-          </ion-label>
-          <ion-input formControlName="userId" type="text"
-                     placeholder="{{ !isEditMode ? 'ID de usuario o vacío' : '' }}"
-                     class="text-gray-900 dark:text-kwd-light"
-                     [readonly]="isEditMode && userRole !== RolEnum.ADMIN"> </ion-input>
-        </ion-item>
-
-        <ion-item *ngIf="isEditMode" lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark dark:text-kwd-light focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
-          <ion-label position="stacked" class="text-gray-700 dark:text-gray-300">Estado</ion-label>
-          <ion-select formControlName="status" interface="popover" class="text-gray-900 dark:text-kwd-light">
-            <ion-select-option *ngFor="let statusOpt of availableStatuses" [value]="statusOpt">
-              {{ statusOpt.replace('_', ' ') | titlecase }}
-            </ion-select-option>
-          </ion-select>
-        </ion-item>
-      </div>
+      <div *ngIf="userRole === RolEnum.ADMIN && isEditMode" class="space-y-4 mt-4">
+         </div>
 
       <div class="flex flex-col sm:flex-row justify-end pt-6 space-y-3 sm:space-y-0 sm:space-x-3">
         <ion-button type="button" fill="outline" (click)="cancel()" color="medium" class="dark:text-gray-300 dark:border-gray-600">

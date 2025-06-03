@@ -10,3 +10,8 @@ export interface Classroom {
   buildingId: string;
   building?: Building;
 }
+export interface ClassroomSummary {
+  id: string;
+  name: string;
+  buildingName?: string; 
+}

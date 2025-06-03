@@ -14,12 +14,10 @@ import java.util.List;
 @Repository
 public interface ReservationRepository extends JpaRepository<Reservation, String> {
 
-
     List<Reservation> findByStatus(ReservationStatus status, Sort sort);
-    List<Reservation> findByUserId(String userId, Sort sort); 
+    List<Reservation> findByUserId(String userId, Sort sort);
     List<Reservation> findByClassroomId(String classroomId, Sort sort);
 
-    // Para filtros con rango de fechas
     List<Reservation> findByClassroomIdAndStartTimeBetween(String classroomId, LocalDateTime startTime, LocalDateTime endTime, Sort sort);
     List<Reservation> findByUserIdAndStartTimeBetween(String userId, LocalDateTime startTime, LocalDateTime endTime, Sort sort);
     List<Reservation> findByStatusAndStartTimeBetween(ReservationStatus status, LocalDateTime startTime, LocalDateTime endTime, Sort sort);
@@ -30,20 +28,14 @@ public interface ReservationRepository extends JpaRepository<Reservation, String
     List<Reservation> findByUserIdAndStartTimeAfter(String userId, LocalDateTime startTime, Sort sort);
     List<Reservation> findByUserIdAndStatus(String userId, ReservationStatus status, Sort sort);
 
-
-    List<Reservation> findByStartTimeAfter(LocalDateTime startTime, Sort sort);
+    List<Reservation> findByStatusAndStartTimeAfter(ReservationStatus status, LocalDateTime startTime, Sort sort); // MÉTODO AÑADIDO
 
     @Query("SELECT r FROM Reservation r WHERE r.user.id = :userId AND r.status = com.backend.IMonitoring.model.ReservationStatus.CONFIRMADA AND r.startTime > :currentTime")
     List<Reservation> findUpcomingConfirmedByUserId(@Param("userId") String userId, @Param("currentTime") LocalDateTime currentTime, Sort sort);
 
-    @Query("SELECT r FROM Reservation r WHERE r.startTime <= :now AND r.endTime >= :now AND r.status = com.backend.IMonitoring.model.ReservationStatus.CONFIRMADA")
+    @Query("SELECT r FROM Reservation r WHERE r.classroom.id IS NOT NULL AND r.startTime <= :now AND r.endTime > :now AND r.status = com.backend.IMonitoring.model.ReservationStatus.CONFIRMADA")
     List<Reservation> findCurrentReservations(@Param("now") LocalDateTime now);
-    
-    
+
     @Query("SELECT r FROM Reservation r WHERE r.classroom.id = :classroomId AND r.startTime >= :startDate AND r.endTime <= :endDate")
     List<Reservation> findByClassroomIdAndDateTimeRange(@Param("classroomId") String classroomId, @Param("startDate") LocalDateTime startDate, @Param("endDate") LocalDateTime endDate);
-
-
-    List<Reservation> findByClassroomId(String classroomId);
-
 }

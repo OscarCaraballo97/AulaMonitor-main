@@ -1,8 +1,11 @@
 import { Routes } from '@angular/router';
-import { authGuardFn } from './guards/auth.guard'; 
+import { authGuard } from './guards/auth.guard'; 
 import { inject } from '@angular/core';
-import { AuthService } from './services/auth.service';
-import { Rol } from './models/rol.model';
+import { AuthService } from './services/auth.service'; 
+import { Rol } from './models/rol.model';  
+
+const canMatchAdminOrCoordinator = () => inject(AuthService).hasAnyRole([Rol.ADMIN, Rol.COORDINADOR]);
+const canMatchAdmin = () => inject(AuthService).hasRole(Rol.ADMIN);
 
 export const routes: Routes = [
   {
@@ -12,58 +15,57 @@ export const routes: Routes = [
   },
   {
     path: 'login',
-    loadComponent: () => import('./pages/login/login.page').then(m => m.LoginPage),
+    loadComponent: () => import('./pages/login/login.page').then((m) => m.LoginPage),
   },
   {
     path: 'register',
-    loadComponent: () => import('./pages/register/register.page').then(m => m.RegisterPage),
+    loadComponent: () => import('./pages/register/register.page').then( m => m.RegisterPage)
   },
   {
     path: 'verify-email',
-    loadComponent: () => import('./pages/verify-email/verify-email.page').then(m => m.VerifyEmailPage)
+    loadComponent: () => import('./pages/verify-email/verify-email.page').then( m => m.VerifyEmailPage)
   },
   {
     path: 'app',
-    loadComponent: () => import('./main-layout/main-layout.page').then(m => m.MainLayoutPage),
-    canActivate: [authGuardFn],
+    loadComponent: () => import('./main-layout/main-layout.page').then((m) => m.MainLayoutPage),
+    canActivate: [authGuard], 
     children: [
       {
         path: 'dashboard',
-        loadComponent: () => import('./pages/dashboard/dashboard.page').then(m => m.DashboardPage),
-        data: { title: 'Dashboard' }
-      },
-      {
-        path: 'profile',
-        loadComponent: () => import('./pages/profile/profile.page').then(m => m.ProfilePage),
-        data: { title: 'Mi Perfil' }
-      },
-      {
-        path: 'users',
-        loadChildren: () => import('./pages/users/users.routes').then(m => m.USER_ROUTES),
-        canMatch: [() => inject(AuthService).hasAnyRole([Rol.ADMIN, Rol.COORDINADOR])],
-        data: { title: 'Gestión de Usuarios' }
+        loadComponent: () => import('./pages/dashboard/dashboard.page').then((m) => m.DashboardPage),
       },
       {
         path: 'reservations',
-        loadChildren: () => import('./pages/reservations/reservations.routes').then(m => m.RESERVATIONS_ROUTES),
-        data: { title: 'Reservas' }
+        loadChildren: () => import('./pages/reservations/reservations.routes').then(m => m.RESERVATIONS_ROUTES)
       },
       {
         path: 'classrooms',
         loadChildren: () => import('./pages/classrooms/classrooms.routes').then(m => m.CLASSROOMS_ROUTES),
-        data: { title: 'Aulas' }
+        canMatch: [canMatchAdminOrCoordinator] 
       },
       {
         path: 'buildings',
         loadChildren: () => import('./pages/buildings/buildings.routes').then(m => m.BUILDING_ROUTES),
-        canMatch: [() => inject(AuthService).hasRole(Rol.ADMIN)],
-        data: { title: 'Edificios' }
+        canMatch: [canMatchAdminOrCoordinator]
+      },
+      {
+        path: 'users',
+        loadChildren: () => import('./pages/users/users.routes').then(m => m.USER_ROUTES),
+        canMatch: [canMatchAdmin]
+      {
+        path: 'profile',
+        loadComponent: () => import('./pages/profile/profile.page').then(m => m.ProfilePage)
+      },
+      {
+        path: 'test-ionic',
+        loadComponent: () => import('./pages/test-ionic/test-ionic.page').then( m => m.TestIonicPage)
       },
       {
         path: '',
         redirectTo: 'dashboard',
-        pathMatch: 'full'
-      }
-    ]
-  }
+        pathMatch: 'full',
+      },
+    ],
+  },
+  { path: '**', redirectTo: '/login', pathMatch: 'full' } 
 ];

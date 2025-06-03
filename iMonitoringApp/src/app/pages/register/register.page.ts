@@ -2,13 +2,12 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, AbstractControl, ValidatorFn } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import {
-  IonicModule, 
-  AlertController, LoadingController, NavController, ToastController
-} from '@ionic/angular'; 
+import {AlertController, LoadingController, NavController, ToastController
+} from '@ionic/angular/standalone'; 
 import { AuthService } from '../../services/auth.service';
 import { Rol } from '../../models/rol.model';
-import { RegisterRequest, AuthResponse } from '../../models/auth.model';
+import { RegisterData, AuthResponse } from '../../models/auth.model'; 
+import { IonicModule } from '@ionic/angular';
 
 
 export function passwordMatchValidator(): ValidatorFn {
@@ -62,7 +61,6 @@ export class RegisterPage implements OnInit {
   ) {}
 
   ngOnInit() {
-
     this.rolesForSelect = Object.keys(Rol)
       .filter(key => isNaN(Number(key)) && Rol[key as keyof typeof Rol] !== Rol.ADMIN && Rol[key as keyof typeof Rol] !== Rol.COORDINADOR)
       .map(key => ({
@@ -73,17 +71,16 @@ export class RegisterPage implements OnInit {
     this.registerForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(3)]],
       email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(6)]],
-      confirmPassword: ['', Validators.required],
-      role: [Rol.ESTUDIANTE, [Validators.required]]
+      password_hash: ['', [Validators.required, Validators.minLength(6)]], 
+      confirmPassword_hash: ['', Validators.required],
+      role: [Rol.ESTUDIANTE, [Validators.required]] 
     }, { validators: passwordMatchValidator() });
   }
 
-
   get name() { return this.registerForm.get('name'); }
   get email() { return this.registerForm.get('email'); }
-  get password() { return this.registerForm.get('password'); }
-  get confirmPassword() { return this.registerForm.get('confirmPassword'); }
+  get password_hash() { return this.registerForm.get('password_hash'); }
+  get confirmPassword_hash() { return this.registerForm.get('confirmPassword_hash'); } 
   get role() { return this.registerForm.get('role'); }
 
   async onSubmit() {
@@ -98,19 +95,22 @@ export class RegisterPage implements OnInit {
     const loading = await this.loadingCtrl.create({ message: 'Registrando...' });
     await loading.present();
 
+    const formValue = this.registerForm.value;
+    const finalRegistrationData: RegisterData = {
+      name: formValue.name,
+      email: formValue.email,
+      password_hash: formValue.password_hash, 
+      role: formValue.role 
+    };
 
-    const { confirmPassword, ...registrationDataToSend } = this.registerForm.value;
-    const finalRegistrationData: RegisterRequest = registrationDataToSend;
-
-
-    console.log('Enviando datos de registro (con rol seleccionado):', finalRegistrationData);
+    console.log('Enviando datos de registro:', finalRegistrationData);
 
     this.authService.register(finalRegistrationData).subscribe({
       next: async (response: AuthResponse) => { 
         this.isLoading = false;
         await loading.dismiss();
-       
-        const successMessage = response.message || response.token || '¡Registro exitoso! Por favor, revisa tu correo electrónico para verificar tu cuenta.';
+        
+        const successMessage = response.message || '¡Registro exitoso! Por favor, revisa tu correo electrónico para verificar tu cuenta.';
         await this.presentSuccessAlert(successMessage);
       },
       error: async (err: Error) => { 
@@ -122,37 +122,8 @@ export class RegisterPage implements OnInit {
     });
   }
 
-  private markFormGroupTouched(formGroup: FormGroup) {
-    Object.values(formGroup.controls).forEach(control => {
-      control.markAsTouched();
-      if (control instanceof FormGroup) {
-        this.markFormGroupTouched(control);
-      }
-    });
-  }
-
-  async presentToast(message: string, color: 'success' | 'danger' | 'warning', iconName?: string) {
-    const toast = await this.toastCtrl.create({ message, duration: 3000, color, position: 'top', icon: iconName });
-    await toast.present();
-  }
-
-  async presentSuccessAlert(message: string) {
-    const alert = await this.alertCtrl.create({
-      header: 'Registro Exitoso',
-      message: message, 
-      buttons: [{
-        text: 'OK',
-        handler: () => {
-          this.navCtrl.navigateRoot('/login', { animated: true, animationDirection: 'back' });
-        }
-      }],
-      backdropDismiss: false 
-    });
-    await alert.present();
-  }
-
-  goToLogin() {
-    this.navCtrl.navigateBack('/login'); 
-  }
-
+  private markFormGroupTouched(formGroup: FormGroup) { /* ... */ }
+  async presentToast(message: string, color: 'success' | 'danger' | 'warning', iconName?: string) { /* ... */ }
+  async presentSuccessAlert(message: string) { /* ... */ }
+  goToLogin() { this.navCtrl.navigateBack('/login'); }
 }

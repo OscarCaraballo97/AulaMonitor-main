@@ -1,10 +1,10 @@
 import { Rol } from './rol.model';
 
 export interface User {
-  id?: string;
+  id: string;
+  name: string;
   email: string;
-  password?: string;
-  role: Rol;
-  name?: string;    
+  role?: Rol; 
   avatarUrl?: string;
+  enabled?: boolean;
 }

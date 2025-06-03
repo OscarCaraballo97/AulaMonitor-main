@@ -259,7 +259,7 @@ export class ClassroomAvailabilityPage implements OnInit, AfterViewInit, OnDestr
               userId: res.user?.id,
               userName: res.user?.name,
               userEmail: res.user?.email,
-              classroomName: this.allClassrooms.find(c => c.id === res.classroomId)?.name || res.classroom?.name || 'N/A',
+              classroomName: this.allClassrooms.find(c => c.id === res.classroom?.id)?.name || res.classroom?.name || 'N/A',
               purpose: res.purpose
             }
           }));

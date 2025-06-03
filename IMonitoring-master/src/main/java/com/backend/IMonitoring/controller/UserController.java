@@ -1,159 +1,167 @@
 package com.backend.IMonitoring.controller;
 
-import com.backend.IMonitoring.model.Reservation;
-import com.backend.IMonitoring.model.User;
+import com.backend.IMonitoring.dto.UpdatePasswordRequest;
+import com.backend.IMonitoring.dto.UserDTO;
+import com.backend.IMonitoring.dto.ReservationResponseDTO; 
 import com.backend.IMonitoring.model.Rol;
 import com.backend.IMonitoring.model.ReservationStatus;
+import com.backend.IMonitoring.model.User;
 import com.backend.IMonitoring.security.UserDetailsImpl;
 import com.backend.IMonitoring.service.ReservationService;
 import com.backend.IMonitoring.service.UserService;
-import com.backend.IMonitoring.exceptions.UnauthorizedAccessException;
+import com.backend.IMonitoring.exceptions.UnauthorizedAccessException; 
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
-import java.time.LocalDateTime; 
-import java.util.List;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
-
+import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class UserController {
     private final UserService userService;
-    private final ReservationService reservationService; 
+    private final ReservationService reservationService;
+
+    @GetMapping("/me")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<UserDTO> getCurrentUserDetails(@AuthenticationPrincipal UserDetailsImpl currentUser) {
+        return ResponseEntity.ok(UserDTO.fromEntity(currentUser.getUserEntity()));
+    }
 
     @GetMapping
-    public ResponseEntity<List<User>> getAllUsers(Authentication authentication) {
-        UserDetailsImpl currentUserDetails = (UserDetailsImpl) authentication.getPrincipal();
-        if (currentUserDetails.getRole() == Rol.ADMIN) {
-            return ResponseEntity.ok(userService.getAllUsers());
-        } else if (currentUserDetails.getRole() == Rol.COORDINADOR) {
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR')")
+    public ResponseEntity<List<UserDTO>> getAllUsers(@AuthenticationPrincipal UserDetailsImpl currentUserDetails) {
+        List<User> usersToProcess;
+        if (currentUserDetails.getRoleEnum() == Rol.ADMIN) {
+            usersToProcess = userService.getAllUsers();
+        } else if (currentUserDetails.getRoleEnum() == Rol.COORDINADOR) {
             List<User> students = userService.getUsersByRole(Rol.ESTUDIANTE);
             List<User> tutors = userService.getUsersByRole(Rol.TUTOR);
             List<User> professors = userService.getUsersByRole(Rol.PROFESOR);
-
-            List<User> combinedList = new ArrayList<>();
-            combinedList.addAll(students);
-            combinedList.addAll(tutors);
-            combinedList.addAll(professors);
-            
-            return ResponseEntity.ok(combinedList);
+            usersToProcess = new ArrayList<>();
+            usersToProcess.addAll(students);
+            usersToProcess.addAll(tutors);
+            usersToProcess.addAll(professors);
+        } else {
+          
+            throw new UnauthorizedAccessException("No tienes permiso para ver esta lista de usuarios.");
         }
-        throw new UnauthorizedAccessException("No tienes permiso para ver esta lista de usuarios.");
+        return ResponseEntity.ok(usersToProcess.stream().map(UserDTO::fromEntity).collect(Collectors.toList()));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<User> getUserById(@PathVariable String id, Authentication authentication) {
-        UserDetailsImpl currentUserDetails = (UserDetailsImpl) authentication.getPrincipal();
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR') or #id == @authentication.principal.id")
+    public ResponseEntity<UserDTO> getUserById(@PathVariable String id, @AuthenticationPrincipal UserDetailsImpl currentUserDetails) {
         User targetUser = userService.getUserById(id);
 
-        if (currentUserDetails.getRole() == Rol.ADMIN) {
-            return ResponseEntity.ok(targetUser);
-        } else if (currentUserDetails.getRole() == Rol.COORDINADOR &&
-                   (targetUser.getRole() == Rol.ESTUDIANTE || targetUser.getRole() == Rol.TUTOR || targetUser.getRole() == Rol.PROFESOR)) {
-            return ResponseEntity.ok(targetUser);
-        } else if (currentUserDetails.getId().equals(id)) {
-             return ResponseEntity.ok(targetUser);
+        
+        boolean isAdmin = currentUserDetails.getAuthorities().stream().anyMatch(auth -> auth.getAuthority().equals("ROLE_ADMIN"));
+        boolean isCoordinator = currentUserDetails.getAuthorities().stream().anyMatch(auth -> auth.getAuthority().equals("ROLE_COORDINADOR"));
+        boolean isSelf = currentUserDetails.getId().equals(id);
+
+        if (isAdmin || isSelf) {
+            return ResponseEntity.ok(UserDTO.fromEntity(targetUser));
+        }
+        if (isCoordinator && (targetUser.getRole() == Rol.ESTUDIANTE || targetUser.getRole() == Rol.TUTOR || targetUser.getRole() == Rol.PROFESOR)) {
+            return ResponseEntity.ok(UserDTO.fromEntity(targetUser));
         }
         throw new UnauthorizedAccessException("No tienes permiso para ver este usuario.");
     }
 
     @GetMapping("/role/{role}")
-    public ResponseEntity<List<User>> getUsersByRole(@PathVariable Rol role, Authentication authentication) {
-        UserDetailsImpl currentUserDetails = (UserDetailsImpl) authentication.getPrincipal();
-        if (currentUserDetails.getRole() == Rol.ADMIN) {
-             return ResponseEntity.ok(userService.getUsersByRole(role));
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR')")
+    public ResponseEntity<List<UserDTO>> getUsersByRole(@PathVariable Rol role, @AuthenticationPrincipal UserDetailsImpl currentUserDetails) {
+        boolean isAdmin = currentUserDetails.getAuthorities().stream().anyMatch(auth -> auth.getAuthority().equals("ROLE_ADMIN"));
+        boolean isCoordinator = currentUserDetails.getAuthorities().stream().anyMatch(auth -> auth.getAuthority().equals("ROLE_COORDINADOR"));
+
+        if (isAdmin) {
+             return ResponseEntity.ok(userService.getUsersByRole(role).stream().map(UserDTO::fromEntity).collect(Collectors.toList()));
         }
-        else if (currentUserDetails.getRole() == Rol.COORDINADOR &&
-                 (role == Rol.ESTUDIANTE || role == Rol.TUTOR || role == Rol.PROFESOR)) {
-             return ResponseEntity.ok(userService.getUsersByRole(role));
+        if (isCoordinator && (role == Rol.ESTUDIANTE || role == Rol.TUTOR || role == Rol.PROFESOR)) {
+             return ResponseEntity.ok(userService.getUsersByRole(role).stream().map(UserDTO::fromEntity).collect(Collectors.toList()));
         }
-        
         throw new UnauthorizedAccessException("No tienes permiso para esta operación.");
     }
 
     @PostMapping
-    public ResponseEntity<User> createUser(@RequestBody User user) {
-        User createdUser = userService.createUser(user);
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<UserDTO> createUser(@Valid @RequestBody UserDTO userDTO) {
+        User createdUser = userService.createUser(userDTO); 
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
                 .path("/{id}")
                 .buildAndExpand(createdUser.getId())
                 .toUri();
-        return ResponseEntity.created(location).body(createdUser);
+        return ResponseEntity.created(location).body(UserDTO.fromEntity(createdUser));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<User> updateUser(@PathVariable String id, @RequestBody User userDetails, Authentication authentication) {
-        UserDetailsImpl currentUserDetails = (UserDetailsImpl) authentication.getPrincipal();
-        User userToUpdate = userService.getUserById(id);
-        Rol performingUserRole = currentUserDetails.getRole();
-
-  
-        User updatedUser = userService.updateUser(id, userDetails, performingUserRole);
-        return ResponseEntity.ok(updatedUser);
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<UserDTO> updateUser(
+            @PathVariable String id, 
+            @Valid @RequestBody UserDTO userDTO,
+            @AuthenticationPrincipal UserDetailsImpl currentUser) {
+        User performingUser = currentUser.getUserEntity();
+        User updatedUser = userService.updateUser(id, userDTO, performingUser);
+        return ResponseEntity.ok(UserDTO.fromEntity(updatedUser));
     }
 
+    @PatchMapping("/{id}/password")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<Void> updateUserPassword(
+            @PathVariable String id,
+            @Valid @RequestBody UpdatePasswordRequest passwordRequest,
+            @AuthenticationPrincipal UserDetailsImpl currentUser) {
+        userService.updateUserPassword(id, passwordRequest.getCurrentPassword(), passwordRequest.getNewPassword(), currentUser.getUserEntity());
+        return ResponseEntity.ok().build();
+    }
 
     @GetMapping("/{userId}/reservations")
-    public ResponseEntity<List<Reservation>> getUserReservations(@PathVariable String userId, Authentication authentication) {
-        UserDetailsImpl currentUserDetails = (UserDetailsImpl) authentication.getPrincipal();
-        User targetUser = userService.getUserById(userId); 
-
-        if (currentUserDetails.getRole() == Rol.ADMIN) {
-  
-            return ResponseEntity.ok(reservationService.getReservationsByUserId(userId));
-        } else if (currentUserDetails.getRole() == Rol.COORDINADOR &&
-                   (targetUser.getRole() == Rol.ESTUDIANTE || targetUser.getRole() == Rol.TUTOR || targetUser.getRole() == Rol.PROFESOR) ) {
-            return ResponseEntity.ok(reservationService.getReservationsByUserId(userId));
-        } else if (currentUserDetails.getId().equals(userId)) {
-            return ResponseEntity.ok(reservationService.getReservationsByUserId(userId));
-        }
-        throw new UnauthorizedAccessException("No tienes permiso para ver las reservas de este usuario.");
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR') or #userId == authentication.principal.id")
+    public ResponseEntity<List<ReservationResponseDTO>> getUserReservations(@PathVariable String userId) {
+        List<ReservationResponseDTO> reservations = reservationService.getReservationsByUserIdDTO(userId);
+        return ResponseEntity.ok(reservations);
     }
-
+    
     @GetMapping("/me/reservations")
-    public ResponseEntity<List<Reservation>> getCurrentUserReservations(
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<List<ReservationResponseDTO>> getCurrentUserReservations(
+            @AuthenticationPrincipal UserDetailsImpl currentUserDetails,
             @RequestParam(name = "status", required = false) ReservationStatus status,
-            @RequestParam(name = "sort", required = false, defaultValue = "startTime,asc") String sort,
-            @RequestParam(name = "limit", required = false, defaultValue = "10") int limit,
+            @RequestParam(name = "sortField", required = false, defaultValue = "startTime") String sortField,
+            @RequestParam(name = "sortDirection", required = false, defaultValue = "asc") String sortDirection,
+            @RequestParam(name = "limit", required = false) Integer limit,
             @RequestParam(name = "futureOnly", required = false, defaultValue = "false") boolean futureOnly,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate
-    ) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated() || !(authentication.getPrincipal() instanceof UserDetailsImpl)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        String currentUserId = userDetails.getId();
-
-        String sortField = "startTime";
-        String sortDirection = "asc";
-        if (sort != null && sort.contains(",")) {
-            String[] sortParams = sort.split(",");
-            sortField = sortParams[0];
-            if (sortParams.length > 1) sortDirection = sortParams[1];
-        }
-        List<Reservation> userReservations = reservationService.getFilteredUserReservations(
-            currentUserId, status, sortDirection, sortField, 0, limit, futureOnly,
-            startDate, endDate 
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+            @RequestParam(required = false, defaultValue = "0") int page, 
+            @RequestParam(required = false, defaultValue = "1000") int size) {
+        String currentUserId = currentUserDetails.getId();
+        
+        List<ReservationResponseDTO> userReservationsDTO = reservationService.getFilteredUserReservations(
+            currentUserId, status, sortField, sortDirection, page, size, futureOnly, startDate, endDate
         );
         
-        return ResponseEntity.ok(userReservations);
+        if (limit != null && limit > 0 && userReservationsDTO.size() > limit && page == 0) {
+            userReservationsDTO = userReservationsDTO.subList(0, Math.min(limit, userReservationsDTO.size()));
+        }
+        return ResponseEntity.ok(userReservationsDTO);
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteUser(@PathVariable String id) {
-
         userService.deleteUser(id);
         return ResponseEntity.noContent().build();
     }
