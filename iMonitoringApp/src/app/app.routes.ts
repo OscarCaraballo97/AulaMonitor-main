@@ -52,6 +52,7 @@ export const routes: Routes = [
         path: 'users',
         loadChildren: () => import('./pages/users/users.routes').then(m => m.USER_ROUTES),
         canMatch: [canMatchAdmin]
+        },
       {
         path: 'profile',
         loadComponent: () => import('./pages/profile/profile.page').then(m => m.ProfilePage)
