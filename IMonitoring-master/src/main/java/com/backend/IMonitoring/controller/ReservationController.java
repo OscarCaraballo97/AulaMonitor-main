@@ -1,7 +1,7 @@
 package com.backend.IMonitoring.controller;
 
 import com.backend.IMonitoring.dto.ReservationRequestDTO;
-import com.backend.IMonitoring.dto.ReservationResponseDTO; // Importar DTO de respuesta
+import com.backend.IMonitoring.dto.ReservationResponseDTO;
 import com.backend.IMonitoring.model.Classroom;
 import com.backend.IMonitoring.model.Reservation;
 import com.backend.IMonitoring.model.ReservationStatus;

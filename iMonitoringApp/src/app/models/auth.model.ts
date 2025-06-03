@@ -3,20 +3,20 @@ import { Rol } from './rol.model';
 
 export interface AuthResponse {
   token: string;
-  message?: string; 
-  user?: User; 
+  message?: string;
+  user?: User;
 }
 
 export interface LoginCredentials {
   email: string;
-  password_hash: string; 
+  password: string; 
 }
 
 export interface RegisterData {
   name: string;
   email: string;
   password_hash: string;
-  role: Rol; 
+  role: Rol;
 }
 
 export interface RegisterRequest {
@@ -29,7 +29,7 @@ export interface RegisterRequest {
 
 export interface PasswordResetRequest {
   token: string;
-  newPassword_hash: string; 
+  newPassword_hash: string;
 }
 
 export interface PasswordChangeRequest {

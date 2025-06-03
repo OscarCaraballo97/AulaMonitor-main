@@ -57,7 +57,7 @@ export class LoginPage implements OnInit {
 
     const credentials: LoginCredentials = {
       email: this.loginForm.value.email,
-      password_hash: this.loginForm.value.password
+      password: this.loginForm.value.password 
     };
 
     this.authService.login(credentials).subscribe({

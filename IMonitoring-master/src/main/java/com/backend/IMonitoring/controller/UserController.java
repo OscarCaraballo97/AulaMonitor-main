@@ -2,14 +2,14 @@ package com.backend.IMonitoring.controller;
 
 import com.backend.IMonitoring.dto.UpdatePasswordRequest;
 import com.backend.IMonitoring.dto.UserDTO;
-import com.backend.IMonitoring.dto.ReservationResponseDTO; 
+import com.backend.IMonitoring.dto.ReservationResponseDTO;
 import com.backend.IMonitoring.model.Rol;
 import com.backend.IMonitoring.model.ReservationStatus;
 import com.backend.IMonitoring.model.User;
 import com.backend.IMonitoring.security.UserDetailsImpl;
 import com.backend.IMonitoring.service.ReservationService;
 import com.backend.IMonitoring.service.UserService;
-import com.backend.IMonitoring.exceptions.UnauthorizedAccessException; 
+import com.backend.IMonitoring.exceptions.UnauthorizedAccessException;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*", allowedHeaders = "*")
+
 public class UserController {
     private final UserService userService;
     private final ReservationService reservationService;
@@ -54,20 +54,20 @@ public class UserController {
             usersToProcess.addAll(tutors);
             usersToProcess.addAll(professors);
         } else {
-          
+
             throw new UnauthorizedAccessException("No tienes permiso para ver esta lista de usuarios.");
         }
         return ResponseEntity.ok(usersToProcess.stream().map(UserDTO::fromEntity).collect(Collectors.toList()));
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR') or #id == @authentication.principal.id")
+   
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR') or #id == authentication.principal.id")
     public ResponseEntity<UserDTO> getUserById(@PathVariable String id, @AuthenticationPrincipal UserDetailsImpl currentUserDetails) {
         User targetUser = userService.getUserById(id);
 
-        
-        boolean isAdmin = currentUserDetails.getAuthorities().stream().anyMatch(auth -> auth.getAuthority().equals("ROLE_ADMIN"));
-        boolean isCoordinator = currentUserDetails.getAuthorities().stream().anyMatch(auth -> auth.getAuthority().equals("ROLE_COORDINADOR"));
+        boolean isAdmin = currentUserDetails.getRoleEnum() == Rol.ADMIN;
+        boolean isCoordinator = currentUserDetails.getRoleEnum() == Rol.COORDINADOR;
         boolean isSelf = currentUserDetails.getId().equals(id);
 
         if (isAdmin || isSelf) {
@@ -76,14 +76,15 @@ public class UserController {
         if (isCoordinator && (targetUser.getRole() == Rol.ESTUDIANTE || targetUser.getRole() == Rol.TUTOR || targetUser.getRole() == Rol.PROFESOR)) {
             return ResponseEntity.ok(UserDTO.fromEntity(targetUser));
         }
+     
         throw new UnauthorizedAccessException("No tienes permiso para ver este usuario.");
     }
 
     @GetMapping("/role/{role}")
     @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR')")
     public ResponseEntity<List<UserDTO>> getUsersByRole(@PathVariable Rol role, @AuthenticationPrincipal UserDetailsImpl currentUserDetails) {
-        boolean isAdmin = currentUserDetails.getAuthorities().stream().anyMatch(auth -> auth.getAuthority().equals("ROLE_ADMIN"));
-        boolean isCoordinator = currentUserDetails.getAuthorities().stream().anyMatch(auth -> auth.getAuthority().equals("ROLE_COORDINADOR"));
+        boolean isAdmin = currentUserDetails.getRoleEnum() == Rol.ADMIN;
+        boolean isCoordinator = currentUserDetails.getRoleEnum() == Rol.COORDINADOR;
 
         if (isAdmin) {
              return ResponseEntity.ok(userService.getUsersByRole(role).stream().map(UserDTO::fromEntity).collect(Collectors.toList()));
@@ -91,13 +92,15 @@ public class UserController {
         if (isCoordinator && (role == Rol.ESTUDIANTE || role == Rol.TUTOR || role == Rol.PROFESOR)) {
              return ResponseEntity.ok(userService.getUsersByRole(role).stream().map(UserDTO::fromEntity).collect(Collectors.toList()));
         }
-        throw new UnauthorizedAccessException("No tienes permiso para esta operación.");
+
+        throw new UnauthorizedAccessException("No tienes permiso para ver usuarios con este rol.");
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<UserDTO> createUser(@Valid @RequestBody UserDTO userDTO) {
-        User createdUser = userService.createUser(userDTO); 
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR')")
+    public ResponseEntity<UserDTO> createUser(@Valid @RequestBody UserDTO userDTO, @AuthenticationPrincipal UserDetailsImpl currentUserDetails) { // Añadido currentUserDetails
+        User performingUser = currentUserDetails.getUserEntity();
+        User createdUser = userService.createUser(userDTO, performingUser);
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
                 .path("/{id}")
@@ -109,7 +112,7 @@ public class UserController {
     @PutMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<UserDTO> updateUser(
-            @PathVariable String id, 
+            @PathVariable String id,
             @Valid @RequestBody UserDTO userDTO,
             @AuthenticationPrincipal UserDetailsImpl currentUser) {
         User performingUser = currentUser.getUserEntity();
@@ -133,7 +136,7 @@ public class UserController {
         List<ReservationResponseDTO> reservations = reservationService.getReservationsByUserIdDTO(userId);
         return ResponseEntity.ok(reservations);
     }
-    
+
     @GetMapping("/me/reservations")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<List<ReservationResponseDTO>> getCurrentUserReservations(
@@ -145,24 +148,25 @@ public class UserController {
             @RequestParam(name = "futureOnly", required = false, defaultValue = "false") boolean futureOnly,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
-            @RequestParam(required = false, defaultValue = "0") int page, 
-            @RequestParam(required = false, defaultValue = "1000") int size) {
+            @RequestParam(required = false, defaultValue = "0") int page,
+            @RequestParam(required = false, defaultValue = "1000") int size) { 
         String currentUserId = currentUserDetails.getId();
-        
+
         List<ReservationResponseDTO> userReservationsDTO = reservationService.getFilteredUserReservations(
             currentUserId, status, sortField, sortDirection, page, size, futureOnly, startDate, endDate
         );
-        
-        if (limit != null && limit > 0 && userReservationsDTO.size() > limit && page == 0) {
+
+        if (limit != null && limit > 0 && userReservationsDTO.size() > limit && page == 0) { 
             userReservationsDTO = userReservationsDTO.subList(0, Math.min(limit, userReservationsDTO.size()));
         }
         return ResponseEntity.ok(userReservationsDTO);
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> deleteUser(@PathVariable String id) {
-        userService.deleteUser(id);
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR')") 
+    public ResponseEntity<Void> deleteUser(@PathVariable String id, @AuthenticationPrincipal UserDetailsImpl currentUserDetails) { // Añadido currentUserDetails
+        User performingUser = currentUserDetails.getUserEntity();
+        userService.deleteUser(id, performingUser); 
         return ResponseEntity.noContent().build();
     }
 }

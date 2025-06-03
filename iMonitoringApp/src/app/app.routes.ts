@@ -5,7 +5,6 @@ import { AuthService } from './services/auth.service';
 import { Rol } from './models/rol.model';  
 
 const canMatchAdminOrCoordinator = () => inject(AuthService).hasAnyRole([Rol.ADMIN, Rol.COORDINADOR]);
-const canMatchAdmin = () => inject(AuthService).hasRole(Rol.ADMIN);
 
 export const routes: Routes = [
   {
@@ -51,7 +50,7 @@ export const routes: Routes = [
       {
         path: 'users',
         loadChildren: () => import('./pages/users/users.routes').then(m => m.USER_ROUTES),
-        canMatch: [canMatchAdmin]
+        canMatch: [canMatchAdminOrCoordinator]
         },
       {
         path: 'profile',
