@@ -1,50 +1,37 @@
 package com.backend.IMonitoring.model;
-
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.fasterxml.jackson.annotation.JsonFormat; // Asegúrate de que esta importación esté aquí
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import lombok.ToString;
 
-import java.time.LocalDateTime;
-import java.util.List;
+import java.time.Instant; 
+import java.time.LocalDateTime; 
 
-@Entity
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
-@Table(name = "reservation")
+@Entity
+@Table(name = "reservations")
 public class Reservation {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "classroom_id", nullable = false)
-    @JsonBackReference("classroom-reservations")
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
-    private Classroom classroom;
-
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER) 
     @JoinColumn(name = "user_id", nullable = false)
-    @JsonBackReference("user-reservations")
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude
     private User user;
 
-    @Column(nullable = false, columnDefinition = "TIMESTAMP")
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC") 
-    private LocalDateTime startTime;
+    @ManyToOne(fetch = FetchType.EAGER) 
+    @JoinColumn(name = "classroom_id", nullable = false)
+    private Classroom classroom;
 
-    @Column(nullable = false, columnDefinition = "TIMESTAMP")
-    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC") 
-    private LocalDateTime endTime;
+    @Column(nullable = false)
+    private Instant startTime; 
+
+    @Column(nullable = false)
+    private Instant endTime;
 
     @Column(nullable = false)
     private String purpose;
@@ -53,22 +40,6 @@ public class Reservation {
     @Column(nullable = false)
     private ReservationStatus status;
 
-    @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at", nullable = false, columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        if (createdAt == null) {
-            createdAt = LocalDateTime.now();
-        }
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt; 
 }

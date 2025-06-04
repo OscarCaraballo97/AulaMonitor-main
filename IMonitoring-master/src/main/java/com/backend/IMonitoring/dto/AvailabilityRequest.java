@@ -1,24 +1,21 @@
 package com.backend.IMonitoring.dto;
 
-import jakarta.validation.constraints.NotBlank;
+import java.time.Instant;
 import jakarta.validation.constraints.NotNull;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
 
-import java.time.LocalDateTime;
-
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
 public class AvailabilityRequest {
-
-    @NotBlank(message = "El ID del aula (classroomId) es obligatorio")
+    @NotNull
     private String classroomId;
+    @NotNull
+    private Instant startTime; 
+    @NotNull
+    private Instant endTime;   
 
-    @NotNull(message = "La fecha y hora de inicio son obligatorias")
-    private LocalDateTime startTime;
 
-    @NotNull(message = "La fecha y hora de fin son obligatorias")
-    private LocalDateTime endTime;
+    public String getClassroomId() { return classroomId; }
+    public void setClassroomId(String classroomId) { this.classroomId = classroomId; }
+    public Instant getStartTime() { return startTime; }
+    public void setStartTime(Instant startTime) { this.startTime = startTime; }
+    public Instant getEndTime() { return endTime; }
+    public void setEndTime(Instant endTime) { this.endTime = endTime; }
 }

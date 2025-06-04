@@ -93,11 +93,7 @@ export class MainLayoutPage implements OnInit, OnDestroy {
       }
     });
     this.updatePageTitle(this.router.url);
-    // Removed the problematic call to this.themeService.loadTheme()
-    // Assuming ThemeService's constructor or an initTheme() method handles initial theme loading.
-    // If your ThemeService requires an explicit call after construction,
-    // ensure that method exists and is called appropriately (e.g., this.themeService.initTheme() if available).
-  }
+   }
 
   private setupNavLinks() {
     this.allNavLinks = [

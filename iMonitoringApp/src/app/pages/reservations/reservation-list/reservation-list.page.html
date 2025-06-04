@@ -78,9 +78,14 @@
                 <h2 class="font-bold text-md">{{ res.purpose || 'Reserva sin motivo' }}</h2>
                 <p class="text-xs text-gray-500 dark:text-gray-400"><ion-icon name="business-outline" class="mr-1 align-middle"></ion-icon> {{ res.classroom?.name }} ({{ res.classroom?.buildingName || 'N/A' }})</p>
                 <p class="text-xs text-gray-500 dark:text-gray-400"><ion-icon name="person-outline" class="mr-1 align-middle"></ion-icon> {{ res.user?.name || 'N/A' }}</p>
+                <p style="font-size: 0.7rem; color: red; background-color: white;">
+                    DEBUG CRUDO startTime: {{ res.startTime }} <br/>
+                    DEBUG CRUDO endTime: {{ res.endTime }}
+                </p>
                 <p class="text-xs text-gray-500 dark:text-gray-400">
                     <ion-icon name="calendar-outline" class="mr-1 align-middle"></ion-icon> 
-                    {{ res.startTime | date:'dd/MM/yy, HH:mm':'UTC':'es-CO' }} - {{ res.endTime | date:'HH:mm':'UTC':'es-CO' }}
+                    {{ (res.startTime && (res.startTime.endsWith('Z') ? res.startTime : res.startTime + 'Z')) | date:'dd/MM/yy, HH:mm':'America/Bogota':'es-CO' }} - 
+                    {{ (res.endTime && (res.endTime.endsWith('Z') ? res.endTime : res.endTime + 'Z')) | date:'HH:mm':'America/Bogota':'es-CO' }}
                 </p>
                 <p class="text-xs mt-1"><ion-icon name="hourglass-outline" class="mr-1 align-middle"></ion-icon> <span class="font-semibold py-0.5 px-1.5 rounded-md text-white text-[0.65rem]" [style.backgroundColor]="getEventColor(res.status)">{{ res.status | titlecase }}</span></p>
               </ion-label>
@@ -128,9 +133,14 @@
               <h2 class="font-bold text-md">{{ res.purpose || 'Reserva sin motivo' }}</h2>
               <p class="text-xs text-gray-500 dark:text-gray-400"><ion-icon name="business-outline" class="mr-1 align-middle"></ion-icon> {{ res.classroom?.name }} ({{ res.classroom?.buildingName || 'N/A' }})</p>
               <p class="text-xs text-gray-500 dark:text-gray-400"><ion-icon name="person-outline" class="mr-1 align-middle"></ion-icon> {{ res.user?.name || 'N/A' }}</p>
+              <p style="font-size: 0.7rem; color: red; background-color: white;">
+                  DEBUG CRUDO startTime: {{ res.startTime }} <br/>
+                  DEBUG CRUDO endTime: {{ res.endTime }}
+              </p>
               <p class="text-xs text-gray-500 dark:text-gray-400">
                   <ion-icon name="calendar-outline" class="mr-1 align-middle"></ion-icon> 
-                  {{ res.startTime | date:'dd/MM/yy, HH:mm':'UTC':'es-CO' }} - {{ res.endTime | date:'HH:mm':'UTC':'es-CO' }}
+                  {{ (res.startTime && (res.startTime.endsWith('Z') ? res.startTime : res.startTime + 'Z')) | date:'dd/MM/yy, HH:mm':'America/Bogota':'es-CO' }} - 
+                  {{ (res.endTime && (res.endTime.endsWith('Z') ? res.endTime : res.endTime + 'Z')) | date:'HH:mm':'America/Bogota':'es-CO' }}
               </p>
               <p class="text-xs mt-1"><ion-icon name="hourglass-outline" class="mr-1 align-middle"></ion-icon> <span class="font-semibold py-0.5 px-1.5 rounded-md text-white text-[0.65rem]" [style.backgroundColor]="getEventColor(res.status)">{{ res.status | titlecase }}</span></p>
             </ion-label>

@@ -1,401 +1,414 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { IonicModule, LoadingController, ToastController, AlertController, NavController } from '@ionic/angular';
-import { CommonModule, formatDate } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild, AfterViewInit } from '@angular/core';
+import { CommonModule, DatePipe, TitleCasePipe, formatDate } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Observable, Subject } from 'rxjs';
-import { takeUntil, finalize } from 'rxjs/operators';
+import { Router, RouterModule, ActivatedRoute } from '@angular/router';
+import {
+  IonHeader, IonToolbar, IonButtons, IonMenuButton, IonTitle, IonContent, IonRefresher, IonRefresherContent,
+  IonSegment, IonSegmentButton, IonLabel, IonBadge, IonList, IonCard, IonItem, IonIcon, IonButton, IonFooter,
+  IonSpinner, IonSearchbar, IonSelect, IonSelectOption, IonInfiniteScroll, IonInfiniteScrollContent, PopoverController
+} from '@ionic/angular/standalone';
+import { AlertController, LoadingController, NavController, ToastController } from '@ionic/angular';
 
-import { Reservation, ReservationStatus, ReservationUserDetails, ReservationClassroomDetails } from '../../../models/reservation.model';
+import { ReservationService, ReservationListFilters, PaginatedReservations } from '../../../services/reservation.service';
+import { AuthService, AuthData } from '../../../services/auth.service'; 
+import { Reservation, ReservationStatus } from '../../../models/reservation.model';
+import { ClassroomType as ReservationClassroomTypeEnum } from '../../../models/classroom-type.enum';
 import { User } from '../../../models/user.model';
 import { Rol } from '../../../models/rol.model';
-import { ReservationService, ReservationListFilters } from '../../../services/reservation.service';
-import { AuthService } from '../../../services/auth.service';
+import { Subject } from 'rxjs';
+import { takeUntil, finalize, catchError } from 'rxjs/operators';
+
 import { HttpErrorResponse } from '@angular/common/http';
-import { ClassroomType as ReservationClassroomTypeEnum } from '../../../models/classroom-type.enum';
 
 @Component({
   selector: 'app-reservation-list',
   templateUrl: './reservation-list.page.html',
   styleUrls: ['./reservation-list.page.scss'],
   standalone: true,
-  imports: [IonicModule, CommonModule, RouterModule, FormsModule]
-})
-export class ReservationListPage implements OnInit, OnDestroy {
-  private destroy$ = new Subject<void>();
+  imports: [
+    CommonModule, FormsModule, RouterModule,
+    IonHeader, IonToolbar, IonButtons, IonMenuButton, IonTitle, IonContent, IonRefresher, IonRefresherContent,
+    IonSegment, IonSegmentButton, IonLabel, IonBadge, IonList, IonCard, IonItem, IonIcon, IonButton, IonFooter,
+    IonSpinner, IonSearchbar, IonSelect, IonSelectOption, IonInfiniteScroll, IonInfiniteScrollContent,
+    TitleCasePipe
 
-  pendingReservations: Reservation[] = [];
-  myReservations: Reservation[] = [];
-  filteredMyReservations: Reservation[] = [];
-  
-  isLoadingPending = false;
-  isLoadingMyReservations = false;
+  ]
+})
+export class ReservationListPage implements OnInit, OnDestroy, AfterViewInit {
+  @ViewChild('myReservationsInfiniteScroll') infiniteScrollMyReservations!: IonInfiniteScroll;
+  @ViewChild('allSystemReservationsInfiniteScroll') infiniteScrollAllSystem!: IonInfiniteScroll;
   
   currentUser: User | null = null;
   userRole: Rol | null = null;
-  
-  segmentValue: 'pending' | 'my-reservations' = 'pending';
-  searchTermMyReservations: string = '';
+  RolEnum = Rol;
+  ReservationClassroomTypeEnum = ReservationClassroomTypeEnum;
 
-  showPendingSection: boolean = true;
-  filterStatus: ReservationStatus | 'ALL' = 'ALL'; 
+  segmentValue: 'pending' | 'my-reservations' | 'all' = 'pending';
   
-  allStatusesForFilter: { label: string, value: ReservationStatus | 'ALL' }[] = [
-    { label: 'Todas', value: 'ALL' },
-    { label: 'Pendientes', value: ReservationStatus.PENDIENTE },
-    { label: 'Confirmadas', value: ReservationStatus.CONFIRMADA },
-    { label: 'Canceladas', value: ReservationStatus.CANCELADA },
-    { label: 'Rechazadas', value: ReservationStatus.RECHAZADA }
+  pendingReservations: Reservation[] = [];
+  isLoadingPending = false;
+  showPendingSection = true;
+
+  myReservations: Reservation[] = [];
+  filteredMyReservations: Reservation[] = [];
+  isLoadingMyReservations = false;
+  
+  allSystemReservations: Reservation[] = [];
+  filteredAllSystemReservations: Reservation[] = [];
+  isLoadingAllSystemReservations = false;
+  searchTermAllSystemReservations: string = ''; 
+  filterStatusAllSystem: ReservationStatus | 'ALL' = 'ALL';
+  currentPageAllSystem = 0;
+  totalPagesAllSystem = 0;
+
+  searchTermMyReservations: string = '';
+  filterStatus: ReservationStatus | 'ALL' = 'ALL';
+
+  allStatusesForFilter = [
+    { value: 'ALL' as const, label: 'Todos los estados' },
+    { value: ReservationStatus.PENDIENTE, label: 'Pendiente' },
+    { value: ReservationStatus.CONFIRMADA, label: 'Confirmada' },
+    { value: ReservationStatus.RECHAZADA, label: 'Rechazada' },
+    { value: ReservationStatus.CANCELADA, label: 'Cancelada' }
   ];
   
-  public ReservationStatusEnum = ReservationStatus;
-  public RolEnum = Rol;
-  public ReservationClassroomTypeEnum = ReservationClassroomTypeEnum;
   errorMessage: string | null = null;
-handleRefresh: any;
+
+  currentPage = 0;
+  itemsPerPage = 10;
+  totalPages = 0;
+
+  currentSortField: keyof Reservation = 'startTime';
+  currentSortDirection: 'asc' | 'desc' = 'desc';
+
+  private destroy$ = new Subject<void>();
 
   constructor(
     private reservationService: ReservationService,
     private authService: AuthService,
-    private loadingCtrl: LoadingController,
-    private toastCtrl: ToastController,
-    private alertCtrl: AlertController,
+    private router: Router,
     private navCtrl: NavController,
-    private cdr: ChangeDetectorRef
+    private alertCtrl: AlertController,
+    private toastCtrl: ToastController,
+    private loadingCtrl: LoadingController,
+    private cdr: ChangeDetectorRef,
+    private popoverCtrl: PopoverController,
+    private route: ActivatedRoute
   ) {}
 
   ngOnInit() {
-    console.log("ReservationListPage: ngOnInit");
-    this.authService.currentUser.pipe(takeUntil(this.destroy$)).subscribe(user => {
-      this.currentUser = user;
-      this.userRole = user?.role || null;
-      console.log("ReservationListPage: Usuario actual:", this.currentUser, "Rol:", this.userRole);
-      this.determineInitialSegment();
+    this.authService.getCurrentUserWithRole().pipe(takeUntil(this.destroy$)).subscribe(
+      (authData: AuthData | null) => { 
+      if (authData?.user && authData?.role) {
+        this.currentUser = authData.user;
+        this.userRole = authData.role;
+        this.determineInitialSegment();
+        this.loadDataBasedOnSegment(true); 
+      } else {
+        this.navCtrl.navigateRoot('/login');
+      }
+      this.cdr.detectChanges();
     });
+  }
+  
+  ngAfterViewInit() {
+  }
+
+  determineInitialSegment() {
+    const segmentFromQuery = this.route.snapshot.queryParamMap.get('segment') as 'pending' | 'my-reservations' | 'all';
+    if (segmentFromQuery && (this.userRole === Rol.ADMIN || this.userRole === Rol.COORDINADOR)) {
+      this.segmentValue = segmentFromQuery;
+    } else if (this.userRole === Rol.ADMIN || this.userRole === Rol.COORDINADOR) {
+      this.segmentValue = 'all'; 
+    } else {
+      this.segmentValue = 'my-reservations';
+    }
   }
 
   ionViewWillEnter() {
-    console.log("ReservationListPage: ionViewWillEnter");
-    this.loadDataBasedOnSegment();
-  }
-  
-  determineInitialSegment() {
-    if (this.userRole === Rol.ADMIN || this.userRole === Rol.COORDINADOR) {
-      this.segmentValue = 'pending';
-      this.showPendingSection = true;
-    } else {
-      this.segmentValue = 'my-reservations';
-      this.showPendingSection = false; 
-    }
-    console.log("ReservationListPage: Segmento inicial determinado:", this.segmentValue);
   }
 
   segmentChanged(event: any) {
     this.segmentValue = event.detail.value;
-    this.filterStatus = 'ALL'; 
-    this.searchTermMyReservations = '';
-    this.filteredMyReservations = []; 
+    this.currentPage = 0; 
+    this.currentPageAllSystem = 0;
     this.myReservations = []; 
-    this.pendingReservations = []; 
-    this.errorMessage = null;
-    console.log("ReservationListPage: Segmento cambiado a:", this.segmentValue);
-    this.loadDataBasedOnSegment();
+    this.filteredMyReservations = [];
+    this.pendingReservations = [];
+    this.allSystemReservations = [];
+    this.filteredAllSystemReservations = [];
+    this.loadDataBasedOnSegment(true);
   }
 
-  loadDataBasedOnSegment() {
-    console.log("ReservationListPage: loadDataBasedOnSegment - Segmento actual:", this.segmentValue);
-    this.errorMessage = null;
+  loadDataBasedOnSegment(isRefresh = false, event?: any) {
     if (this.segmentValue === 'pending' && (this.userRole === Rol.ADMIN || this.userRole === Rol.COORDINADOR)) {
-      this.loadPendingReservations();
-    } else if (this.segmentValue === 'my-reservations') {
-      this.loadMyReservations(this.filterStatus);
-    } else {
-      this.pendingReservations = [];
-      this.myReservations = [];
-      this.filteredMyReservations = [];
-      this.cdr.detectChanges();
+      this.loadPendingReservations(isRefresh, event);
+    } else if (this.segmentValue === 'all' && (this.userRole === Rol.ADMIN || this.userRole === Rol.COORDINADOR)) {
+      this.loadAllSystemReservations(isRefresh, event);
+    } else { 
+      this.loadMyReservations(isRefresh, event);
     }
   }
 
-  async loadPendingReservations() {
-    if (this.userRole !== Rol.ADMIN && this.userRole !== Rol.COORDINADOR) {
-      this.pendingReservations = [];
-      this.isLoadingPending = false;
-      this.cdr.detectChanges();
-      return;
-    }
-
+  async loadPendingReservations(isRefresh = false, event?: any) {
+    if (!this.currentUser || !(this.userRole === Rol.ADMIN || this.userRole === Rol.COORDINADOR)) return;
+    
     this.isLoadingPending = true;
     this.errorMessage = null;
-    const loading = await this.loadingCtrl.create({ message: 'Cargando pendientes...' });
-    await loading.present();
-    
-    const filters: ReservationListFilters = { 
-      status: ReservationStatus.PENDIENTE,
-      sortField: 'startTime',
-      sortDirection: 'desc'
-    };
+    this.cdr.detectChanges();
 
-    this.reservationService.getAllReservations(filters)
+    const filters: ReservationListFilters = { status: ReservationStatus.PENDIENTE, sortField: 'startTime', sortDirection: 'desc' };
+    this.reservationService.getAllReservations(filters) 
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
           this.isLoadingPending = false;
-          if (loading) loading.dismiss().catch(err => console.error("Error dismissing loading (pending)", err));
+          if (event && event.target && typeof event.target.complete === 'function') {
+            event.target.complete();
+          }
           this.cdr.detectChanges();
         })
       )
       .subscribe({
-        next: (data) => {
-          this.pendingReservations = data;
-          console.log('ReservationListPage: Reservas pendientes cargadas:', this.pendingReservations);
-          if (this.pendingReservations.length === 0) {
-            this.errorMessage = "No hay reservas pendientes para mostrar.";
-          }
+        next: (reservations: Reservation[]) => { 
+          this.pendingReservations = reservations || [];
+          this.cdr.detectChanges();
         },
-        error: (err: Error) => { 
-          console.error('ReservationListPage: Error cargando reservas pendientes:', err);
-          this.errorMessage = err.message || 'Error desconocido al cargar reservas pendientes.';
-          this.presentToast(this.errorMessage, 'danger');
+        error: (err: HttpErrorResponse | any) => { 
+          this.errorMessage = err.error?.message || err.message || 'Error al cargar reservas pendientes.';
+          this.pendingReservations = [];
+          this.presentToast(this.errorMessage || 'Ocurrió un error desconocido', 'danger'); 
+          this.cdr.detectChanges();
         }
       });
   }
+  
+  private isPaginatedResponse(response: any): response is PaginatedReservations {
+    return response && Array.isArray(response.data) && typeof response.totalPages === 'number';
+  }
 
-  async loadMyReservations(status: ReservationStatus | 'ALL' = this.filterStatus) {
+  async loadMyReservations(isRefresh = false, event?: any) {
+    if (!this.currentUser) return;
+
+    if (isRefresh || this.currentPage === 0) {
+      this.myReservations = []; 
+      this.filteredMyReservations = [];
+      this.currentPage = 0; 
+      if (this.infiniteScrollMyReservations) {
+        this.infiniteScrollMyReservations.disabled = false; 
+      }
+    }
+    
     this.isLoadingMyReservations = true;
     this.errorMessage = null;
-    const loading = await this.loadingCtrl.create({ message: 'Cargando mis reservas...' });
-    await loading.present();
+    this.cdr.detectChanges();
 
-    const filters: ReservationListFilters = { 
-      sortField: 'startTime',
-      sortDirection: 'desc'
-    };
-    if (status !== 'ALL') {
-      filters.status = status;
-    }
+    this.reservationService.getMyReservations(
+        this.currentSortField, 
+        this.currentSortDirection, 
+        this.currentPage, 
+        this.itemsPerPage,
+        this.filterStatus === 'ALL' ? undefined : this.filterStatus,
+        false 
+    ).pipe(takeUntil(this.destroy$))
+    .subscribe({
+      next: (response: PaginatedReservations) => { 
+        this.isLoadingMyReservations = false;
+        const newReservations = response.data || []; 
+        this.totalPages = response.totalPages || 1;
         
-    this.reservationService.getMyReservations(filters) 
+        this.myReservations = (isRefresh || this.currentPage === 0) ? [...newReservations] : [...this.myReservations, ...newReservations];
+        this.filterMyReservationsList(); 
+        
+        if (event && event.target && typeof event.target.complete === 'function') {
+          event.target.complete();
+        }
+        if (this.infiniteScrollMyReservations) {
+          this.infiniteScrollMyReservations.disabled = this.currentPage >= (this.totalPages - 1);
+        }
+        this.cdr.detectChanges();
+      },
+      error: (err: HttpErrorResponse | any) => { 
+        this.isLoadingMyReservations = false;
+        this.errorMessage = err.error?.message || err.message || 'Error al cargar tus reservas.';
+        this.myReservations = []; 
+        this.filterMyReservationsList(); 
+        if (event && event.target && typeof event.target.complete === 'function') {
+          event.target.complete();
+        }
+        if (this.infiniteScrollMyReservations) {
+          this.infiniteScrollMyReservations.disabled = true;
+        }
+        this.presentToast(this.errorMessage || 'Error desconocido al cargar mis reservas', 'danger'); 
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  async loadAllSystemReservations(isRefresh = false, event?: any) {
+    if (!this.currentUser || !(this.userRole === Rol.ADMIN || this.userRole === Rol.COORDINADOR)) return;
+  
+    if (isRefresh || this.currentPageAllSystem === 0) {
+      this.allSystemReservations = [];
+      this.filteredAllSystemReservations = [];
+      this.currentPageAllSystem = 0;
+      if (this.infiniteScrollAllSystem) {
+        this.infiniteScrollAllSystem.disabled = false;
+      }
+    }
+  
+    this.isLoadingAllSystemReservations = true;
+    this.errorMessage = null;
+    this.cdr.detectChanges();
+  
+    const filters: ReservationListFilters = {
+      status: this.filterStatusAllSystem === 'ALL' ? undefined : this.filterStatusAllSystem,
+      sortField: 'startTime',
+      sortDirection: 'desc',
+      page: this.currentPageAllSystem,
+      size: this.itemsPerPage
+    };
+  
+    this.reservationService.getAllReservations(filters) // Asumimos que este puede devolver Reservation[] o PaginatedReservations
       .pipe(
         takeUntil(this.destroy$),
         finalize(() => {
-          this.isLoadingMyReservations = false;
-          if (loading) loading.dismiss().catch(err => console.error("Error dismissing loading (my reservations)", err));
+          this.isLoadingAllSystemReservations = false;
+          if (event && event.target && typeof event.target.complete === 'function') {
+            event.target.complete();
+          }
           this.cdr.detectChanges();
         })
       )
       .subscribe({
-        next: (data) => {
-          this.myReservations = data;
-          this.filterMyReservationsList(this.searchTermMyReservations);
-          console.log('ReservationListPage: Mis reservas cargadas:', this.myReservations);
-          if (this.myReservations.length === 0 && !this.searchTermMyReservations) { 
-            this.errorMessage = `No tienes ninguna reserva registrada${this.currentFilterStatusMessage}.`;
+        next: (response: Reservation[] | PaginatedReservations) => { 
+          let newReservations: Reservation[] = [];
+          // Aquí necesitarías adaptar cómo manejas la respuesta si getAllReservations puede devolver PaginatedReservations o solo Reservation[]
+          // Si getAllReservations para 'all' también es paginado y devuelve PaginatedReservations:
+          if (this.isPaginatedResponse(response)) {
+             newReservations = response.data || [];
+             this.totalPagesAllSystem = response.totalPages || 1;
+          } else if (Array.isArray(response)) { // Si devuelve solo Reservation[]
+             newReservations = response || [];
+             // Si no es paginado desde el backend, la paginación en frontend es más compleja o limitada
+             this.totalPagesAllSystem = 1; // Asume una sola página de resultados
+          } else {
+            console.error('Formato de respuesta inesperado para todas las reservas:', response);
+            newReservations = [];
+            this.totalPagesAllSystem = 1;
           }
+  
+          this.allSystemReservations = (isRefresh || this.currentPageAllSystem === 0) ? [...newReservations] : [...this.allSystemReservations, ...newReservations];
+          this.filterAllSystemReservationsList(); 
+  
+          if (this.infiniteScrollAllSystem) {
+            this.infiniteScrollAllSystem.disabled = this.currentPageAllSystem >= (this.totalPagesAllSystem - 1);
+          }
+          this.cdr.detectChanges();
         },
-        error: (err: Error) => { 
-          console.error('ReservationListPage: Error cargando mis reservas:', err);
-          this.errorMessage = err.message || 'Error desconocido al cargar mis reservas.';
-          this.presentToast(this.errorMessage, 'danger');
+        error: (err: HttpErrorResponse | any) => {
+          this.isLoadingAllSystemReservations = false;
+          this.errorMessage = err.error?.message || err.message || 'Error al cargar todas las reservas.';
+          this.allSystemReservations = [];
+          this.filterAllSystemReservationsList();
+          if (this.infiniteScrollAllSystem) {
+            this.infiniteScrollAllSystem.disabled = true;
+          }
+          this.presentToast(this.errorMessage || 'Error desconocido', 'danger');
+          this.cdr.detectChanges();
         }
       });
   }
 
-  onSearchMyReservations(event: any) {
-    this.searchTermMyReservations = event.detail.value || '';
-    this.filterMyReservationsList(this.searchTermMyReservations);
-  }
-
-  filterMyReservationsList(term: string) {
-    const searchTerm = term.toLowerCase().trim();
-    if (!searchTerm) {
-      this.filteredMyReservations = [...this.myReservations];
-      if(this.myReservations.length === 0 && this.segmentValue === 'my-reservations' && !this.isLoadingMyReservations){ 
-         this.errorMessage = `No tienes ninguna reserva registrada${this.currentFilterStatusMessage}.`;
-      } else {
-         this.errorMessage = null;
-      }
+  loadMoreAllSystemReservations(event: any) {
+    if (this.currentPageAllSystem < (this.totalPagesAllSystem - 1)) {
+      this.currentPageAllSystem++;
+      this.loadAllSystemReservations(false, event);
     } else {
-      this.filteredMyReservations = this.myReservations.filter(res => 
-        (res.purpose && res.purpose.toLowerCase().includes(searchTerm)) ||
-        (res.classroom?.name && res.classroom.name.toLowerCase().includes(searchTerm)) ||
-        (res.status && res.status.toString().toLowerCase().includes(searchTerm)) ||
-        (res.user?.name && res.user.name.toLowerCase().includes(searchTerm))
-      );
-      if(this.filteredMyReservations.length === 0){
-        this.errorMessage = `No se encontraron reservas con "${searchTerm}"${this.currentFilterStatusMessage}.`;
-      } else {
-        this.errorMessage = null;
+      if (event && event.target && typeof event.target.complete === 'function') {
+        event.target.complete();
+      }
+      if (this.infiniteScrollAllSystem) {
+        this.infiniteScrollAllSystem.disabled = true;
       }
     }
+  }
+  
+  // Necesitarás un método de filtro para la lista "Todas" similar a filterMyReservationsList
+  filterAllSystemReservationsList() {
+    if (!this.allSystemReservations) {
+        this.filteredAllSystemReservations = [];
+        this.cdr.detectChanges();
+        return;
+    }
+    let tempReservations = [...this.allSystemReservations];
+    // Aplicar filtros si tienes (ej. this.searchTermAllSystemReservations, this.filterStatusAllSystem)
+    // ...
+    this.filteredAllSystemReservations = [...tempReservations];
+    this.cdr.detectChanges();
+  }
+  
+  loadMoreMyReservations(event: any) {
+    if (this.currentPage < (this.totalPages -1 )) {
+      this.currentPage++;
+      this.loadMyReservations(false, event);
+    } else {
+      if (event && event.target && typeof event.target.complete === 'function') {
+        event.target.complete();
+      }
+      if (this.infiniteScrollMyReservations) {
+        this.infiniteScrollMyReservations.disabled = true;
+      }
+    }
+  }
+
+  filterMyReservationsList() {
+    if (!this.myReservations) { 
+        this.filteredMyReservations = [];
+        this.cdr.detectChanges();
+        return;
+    }
+    let tempReservations = [...this.myReservations];
+    if (this.filterStatus && this.filterStatus !== 'ALL') {
+      tempReservations = tempReservations.filter(
+        (res) => res.status === this.filterStatus
+      );
+    }
+    if (this.searchTermMyReservations && this.searchTermMyReservations.trim() !== '') {
+      const searchTermLower = this.searchTermMyReservations.toLowerCase().trim();
+      tempReservations = tempReservations.filter((res) => {
+        const purposeMatch = res.purpose?.toLowerCase().includes(searchTermLower);
+        const classroomNameMatch = res.classroom?.name?.toLowerCase().includes(searchTermLower);
+        const userNameMatch = res.user?.name?.toLowerCase().includes(searchTermLower); 
+        return purposeMatch || classroomNameMatch || userNameMatch;
+      });
+    }
+    this.filteredMyReservations = [...tempReservations];
     this.cdr.detectChanges();
   }
 
-  onFilterChange(event: any) {
-    this.filterStatus = event.detail.value;
-    this.errorMessage = null;
-    console.log("ReservationListPage: Filtro de estado cambiado a:", this.filterStatus);
-    if (this.segmentValue === 'my-reservations') {
-      this.loadMyReservations(this.filterStatus);
-    } else if (this.segmentValue === 'pending') {
-      if (this.filterStatus === 'ALL' || this.filterStatus === ReservationStatus.PENDIENTE) {
-         this.loadPendingReservations();
-      } else {
-        this.pendingReservations = []; 
-        this.errorMessage = `El filtro "${this.allStatusesForFilter.find(s => s.value === this.filterStatus)?.label || this.filterStatus}" no aplica a las reservas pendientes.`;
-      }
-    }
-  }
-  
-  togglePendingSection() {
-    this.showPendingSection = !this.showPendingSection;
+  onSearchMyReservations(event: any) {
+    this.filterMyReservationsList();
   }
 
-  get canCreateReservation(): boolean {
-    return !!this.currentUser; 
+  onFilterChange(event: any) {
+    this.filterMyReservationsList();
   }
 
   get currentFilterStatusMessage(): string {
-    if (this.filterStatus === 'ALL' || !this.filterStatus) {
-      return '';
-    }
+    if (this.filterStatus === 'ALL' || !this.filterStatus) return '';
     const foundStatus = this.allStatusesForFilter.find(s => s.value === this.filterStatus);
-    return foundStatus ? ` con el estado: ${foundStatus.label}` : ` con un estado desconocido`;
-  }
-
-  navigateToAddReservation() {
-    this.navCtrl.navigateForward('/app/reservations/new');
-  }
-
-  navigateToEditReservation(id: string) {
-    this.navCtrl.navigateForward(`/app/reservations/edit/${id}`);
-  }
-
-  canEditReservation(reservation: Reservation): boolean {
-    if (!this.currentUser || !reservation.user?.id) return false;
-    if (this.userRole === Rol.ADMIN) return true; 
-    if (this.userRole === Rol.COORDINADOR && 
-        (reservation.user.id === this.currentUser.id || reservation.user?.role === Rol.ESTUDIANTE) && 
-        (reservation.status === ReservationStatus.PENDIENTE || reservation.status === ReservationStatus.CONFIRMADA)) {
-      return true;
-    }
-    return reservation.user.id === this.currentUser.id && reservation.status === ReservationStatus.PENDIENTE;
-  }
-
-  canCancelReservation(reservation: Reservation): boolean {
-    if (!this.currentUser || !reservation.user?.id) return false;
-    if (this.userRole === Rol.ADMIN) return true;
-    if (this.userRole === Rol.COORDINADOR && 
-        (reservation.user?.role === Rol.ESTUDIANTE || reservation.user.id === this.currentUser.id) && 
-        (reservation.status === ReservationStatus.PENDIENTE || reservation.status === ReservationStatus.CONFIRMADA)) {
-      return true;
-    }
-    return reservation.user.id === this.currentUser.id && 
-           (reservation.status === ReservationStatus.PENDIENTE || reservation.status === ReservationStatus.CONFIRMADA);
+    return foundStatus ? ` con el estado: ${foundStatus.label.toLowerCase()}` : ` con un estado desconocido`;
   }
   
-  canManageStatus(reservation: Reservation): boolean {
-    if (this.userRole === Rol.ADMIN) return true;
-    if (this.userRole === Rol.COORDINADOR && reservation.user?.role === Rol.ESTUDIANTE && reservation.status === ReservationStatus.PENDIENTE) return true;
-    return false;
+  handleRefresh(event: any) {
+    this.currentPage = 0; 
+    this.currentPageAllSystem = 0;
+    this.loadDataBasedOnSegment(true, event);
   }
-
-  async confirmAction(reservation: Reservation, action: 'confirm' | 'reject' | 'cancel') {
-    if (!reservation.id) {
-      this.presentToast('Error: ID de reserva no disponible.', 'danger');
-      return;
-    }
-
-    let newStatus: ReservationStatus | undefined;
-    let actionText: string;
-    let confirmButtonText: string;
-    let alertHeader: string;
-
-    switch (action) {
-      case 'confirm': newStatus = ReservationStatus.CONFIRMADA; actionText = 'confirmar'; alertHeader = 'Confirmar Reserva'; confirmButtonText = 'Sí, Confirmar'; break;
-      case 'reject': newStatus = ReservationStatus.RECHAZADA; actionText = 'rechazar'; alertHeader = 'Rechazar Reserva'; confirmButtonText = 'Sí, Rechazar'; break;
-      case 'cancel': actionText = 'cancelar'; alertHeader = 'Cancelar Reserva'; confirmButtonText = 'Sí, Cancelar'; break;
-      default: console.error('Acción no válida para confirmAction:', action); return;
-    }
-
-    const alert = await this.alertCtrl.create({
-      header: alertHeader,
-      message: `¿Estás seguro de que quieres ${actionText} la reserva para "${reservation.purpose || 'el aula ' + (reservation.classroom?.name || reservation.classroom?.id)}"?`, 
-      buttons: [
-        { text: 'No', role: 'cancel' },
-        {
-          text: confirmButtonText,
-          cssClass: action === 'reject' || action === 'cancel' ? 'alert-button-danger' : '',
-          handler: async () => {
-            const loading = await this.loadingCtrl.create({ message: 'Procesando...' });
-            await loading.present();
-            
-            let operation$: Observable<Reservation>;
-
-            if (action === 'cancel') {
-              operation$ = this.reservationService.cancelMyReservation(reservation.id!);
-            } else if (newStatus) {
-              operation$ = this.reservationService.updateReservationStatus(reservation.id!, newStatus);
-            } else {
-              console.error("Error: newStatus no definido para la acción de estado", action);
-              if(loading) { loading.dismiss().catch(e => console.error(e)); }
-              this.presentToast('Acción de estado no válida.', 'danger');
-              return;
-            }
-
-            operation$.pipe(
-                takeUntil(this.destroy$),
-                finalize(() => { if (loading) { loading.dismiss().catch(e => console.error(e)); }})
-              )
-              .subscribe({
-                next: (updatedRes) => {
-                  this.presentToast(`Reserva ${actionText}a exitosamente.`, 'success');
-                  this.loadDataBasedOnSegment(); 
-                  console.log(`Reserva ${actionText}a:`, updatedRes);
-                },
-                error: (err: Error) => { 
-                  console.error(`Error al ${actionText} la reserva:`, err);
-                  this.presentToast(err.message || `Error desconocido al ${actionText} la reserva.`, 'danger');
-                  this.loadDataBasedOnSegment();
-                }
-              });
-          }
-        },
-      ],
-      cssClass: 'kwd-alert',
-    });
-    await alert.present();
-  }
-
-  async viewReservationDetails(reservation: Reservation) {
-    if (!reservation || !reservation.id) {
-      this.presentToast('No se pueden mostrar los detalles: reserva no válida.', 'warning');
-      return;
-    }
-    const startTime = reservation.startTime ? formatDate(new Date(reservation.startTime.endsWith('Z') ? reservation.startTime : reservation.startTime + 'Z'), 'dd/MM/yyyy, HH:mm', 'es-CO', 'America/Bogota') : 'N/A';
-    const endTime = reservation.endTime ? formatDate(new Date(reservation.endTime.endsWith('Z') ? reservation.endTime : reservation.endTime + 'Z'), 'HH:mm', 'es-CO', 'America/Bogota') : 'N/A'; 
-    const statusDisplay = reservation.status ? (reservation.status as string).charAt(0).toUpperCase() + (reservation.status as string).slice(1).toLowerCase().replace('_', ' ') : 'N/A';
-    
-    const message = `Motivo: ${reservation.purpose || 'No especificado'}\n` +
-                   `Aula: ${reservation.classroom?.name || 'N/A'} (${reservation.classroom?.buildingName || 'N/A'})\n` +
-                   `Inicio: ${startTime}\n` +
-                   `Fin: ${endTime}\n` +
-                   `Estado: ${statusDisplay}\n` +
-                   `Reservado por: ${reservation.user?.name || 'N/A'} (${reservation.user?.email || 'N/A'})\n` +
-                   `ID Reserva: ${reservation.id}`;
-
-    const alert = await this.alertCtrl.create({ 
-      header: 'Detalles de la Reserva', 
-      message: message, 
-      buttons: ['OK'], 
-      mode: 'ios',
-      cssClass: 'reservation-detail-alert' 
-    });
-    await alert.present();
-  }
-
-
-  getEventColor(status: ReservationStatus | undefined): string {
+  
+  getEventColor(status?: ReservationStatus): string {
+    if (!status) return '#808080';
     switch (status) {
       case ReservationStatus.CONFIRMADA: return 'var(--ion-color-success, #2dd36f)';
       case ReservationStatus.PENDIENTE: return 'var(--ion-color-warning, #ffc409)';
@@ -404,20 +417,156 @@ handleRefresh: any;
       default: return 'var(--ion-color-primary, #3880ff)';
     }
   }
-
-  async presentToast(message: string, color: 'success' | 'danger' | 'warning' | 'primary' | 'medium' | 'light', duration: number = 3000) {
-    const toast = await this.toastCtrl.create({ message, duration, color, position: 'top', buttons: [{text:'OK',role:'cancel'}] });
-    await toast.present();
+  
+  get canCreateReservation(): boolean {
+    return this.userRole === Rol.ADMIN || this.userRole === Rol.COORDINADOR || this.userRole === Rol.PROFESOR || this.userRole === Rol.ESTUDIANTE || this.userRole === Rol.TUTOR;
   }
 
-  toggleMyReservationsSection() {
-    this.showPendingSection = !this.showPendingSection; 
+  canManageStatus(reservation: Reservation): boolean {
+    if (!this.currentUser || !this.userRole) return false;
+    if (this.userRole === Rol.ADMIN) return true;
+    if (this.userRole === Rol.COORDINADOR && reservation.user?.role === Rol.ESTUDIANTE) return true;
+    return false;
+  }
+  
+  canEditReservation(reservation: Reservation): boolean {
+    if (!this.currentUser || !this.userRole) return false;
+    if (this.userRole === Rol.ADMIN) return true;
+    if (this.currentUser.id === reservation.user?.id && reservation.status === ReservationStatus.PENDIENTE) return true;
+    if (this.userRole === Rol.COORDINADOR && reservation.user?.role === Rol.ESTUDIANTE &&
+        (reservation.status === ReservationStatus.PENDIENTE || reservation.status === ReservationStatus.CONFIRMADA)) {
+        return true;
+    }
+    return false;
+  }
+  
+  canCancelReservation(reservation: Reservation): boolean {
+    if (!this.currentUser) return false;
+    if (this.userRole === Rol.ADMIN) return true; 
+    if (this.currentUser.id === reservation.user?.id && 
+        (reservation.status === ReservationStatus.PENDIENTE || reservation.status === ReservationStatus.CONFIRMADA)) {
+      return true;
+    }
+    if (this.userRole === Rol.COORDINADOR && reservation.user?.role === Rol.ESTUDIANTE &&
+        (reservation.status === ReservationStatus.PENDIENTE || reservation.status === ReservationStatus.CONFIRMADA)) {
+        return true; 
+    }
+    return false;
   }
 
-  public doLogout() {
-    this.authService.logout();
+  navigateToAddReservation() {
+    this.router.navigate(['/app/reservations/new']);
   }
 
+  navigateToEditReservation(reservationId?: string) { 
+    if (reservationId) {
+      this.router.navigate(['/app/reservations/edit', reservationId]);
+    } else {
+      console.error("ID de reserva no definido para editar.");
+      this.presentToast("No se pudo navegar a editar: ID de reserva no definido.", "danger");
+    }
+  }
+
+  async viewReservationDetails(reservation: Reservation) {
+     if (!reservation || !reservation.id) {
+      this.presentToast('No se pueden mostrar los detalles: reserva no válida.', 'warning'); 
+      return;
+    }
+
+    const startTimeStr = reservation.startTime || '';
+    const endTimeStr = reservation.endTime || '';
+    
+    const startTimeForFormat = (startTimeStr && !startTimeStr.endsWith('Z')) ? startTimeStr + 'Z' : startTimeStr;
+    const endTimeForFormat = (endTimeStr && !endTimeStr.endsWith('Z')) ? endTimeStr + 'Z' : endTimeStr;
+
+    const startTime = reservation.startTime ? formatDate(new Date(startTimeForFormat), 'dd/MM/yyyy, HH:mm', 'es-CO', 'America/Bogota') : 'N/A';
+    const endTime = reservation.endTime ? formatDate(new Date(endTimeForFormat), 'HH:mm', 'es-CO', 'America/Bogota') : 'N/A';
+    const statusDisplay = reservation.status ? (reservation.status as string).charAt(0).toUpperCase() + (reservation.status as string).slice(1).toLowerCase().replace('_', ' ') : 'N/A';
+
+    const message = `<b>Motivo:</b> ${reservation.purpose || 'No especificado'}<br>` +
+                   `<b>Aula:</b> ${reservation.classroom?.name || 'N/A'} (${reservation.classroom?.buildingName || 'N/A'})<br>` +
+                   `<b>Inicio:</b> ${startTime}<br>` +
+                   `<b>Fin:</b> ${endTime}<br>` +
+                   `<b>Estado:</b> ${statusDisplay}<br>` +
+                   `<b>Reservado por:</b> ${reservation.user?.name || 'N/A'} (${reservation.user?.email || 'N/A'})<br>` +
+                   `<b>ID Reserva:</b> ${reservation.id}`;
+
+    const alert = await this.alertCtrl.create({
+      header: 'Detalles de la Reserva',
+      message: message, 
+      buttons: ['OK'],
+      mode: 'ios',
+      cssClass: 'reservation-detail-alert' 
+    });
+    await alert.present();
+  }
+
+  async confirmAction(reservation: Reservation, action: 'confirm' | 'reject' | 'cancel') {
+    let headerText = '';
+    let messageText = `¿Estás seguro de que deseas ${action === 'confirm' ? 'confirmar' : (action === 'reject' ? 'rechazar' : 'cancelar')} esta reserva?`;
+    let confirmHandler: () => void;
+
+    switch (action) {
+      case 'confirm':
+        headerText = 'Confirmar Reserva';
+        confirmHandler = () => this.updateStatus(reservation, ReservationStatus.CONFIRMADA);
+        break;
+      case 'reject':
+        headerText = 'Rechazar Reserva';
+        confirmHandler = () => this.updateStatus(reservation, ReservationStatus.RECHAZADA);
+        break;
+      case 'cancel':
+        headerText = 'Cancelar Reserva';
+        confirmHandler = () => this.updateStatus(reservation, ReservationStatus.CANCELADA); 
+        break;
+      default:
+        return;
+    }
+
+    const alert = await this.alertCtrl.create({
+      header: headerText,
+      message: messageText,
+      buttons: [
+        { text: 'No', role: 'cancel' },
+        { text: 'Sí', handler: confirmHandler }
+      ]
+    });
+    await alert.present();
+  }
+
+  async updateStatus(reservation: Reservation, status: ReservationStatus) {
+    if (!reservation || !reservation.id) {
+      this.presentToast('Error: No se puede actualizar el estado de una reserva inválida.', 'danger');
+      return;
+    }
+    const loading = await this.loadingCtrl.create({ message: 'Actualizando estado...' });
+    await loading.present();
+    this.reservationService.updateReservationStatus(reservation.id, status)
+      .pipe(takeUntil(this.destroy$), finalize(() => loading.dismiss()))
+      .subscribe({
+        next: () => {
+          this.presentToast(`Reserva ${status.toLowerCase()} exitosamente.`, 'success'); 
+          this.loadDataBasedOnSegment(true); 
+        },
+        error: (err: HttpErrorResponse | any) => this.presentToast(err.message || `Error al ${status.toLowerCase()} la reserva.`, 'danger') 
+      });
+  }
+  
+  async presentToast(message: string, color: 'success' | 'danger' | 'warning', duration: number = 3000) {
+    const toast = await this.toastCtrl.create({ 
+        message, 
+        duration, 
+        color, 
+        position: 'top',
+        buttons: [{text:'OK',role:'cancel'}] 
+    });
+    toast.present();
+  }
+
+  togglePendingSection() {
+    this.showPendingSection = !this.showPendingSection;
+  }
+  
   ngOnDestroy() {
     this.destroy$.next();
     this.destroy$.complete();

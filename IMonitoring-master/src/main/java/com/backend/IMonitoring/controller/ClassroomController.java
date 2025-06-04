@@ -1,104 +1,109 @@
 package com.backend.IMonitoring.controller;
 
 import com.backend.IMonitoring.dto.AvailabilityRequest;
-import com.backend.IMonitoring.dto.ClassroomAvailabilitySummaryDTO;
-import com.backend.IMonitoring.dto.ClassroomDTO; // Importar ClassroomDTO
+import com.backend.IMonitoring.dto.ClassroomDTO;
 import com.backend.IMonitoring.dto.ClassroomRequestDTO;
-import com.backend.IMonitoring.model.Classroom;
 import com.backend.IMonitoring.model.ClassroomType;
-import com.backend.IMonitoring.model.Reservation;
+import com.backend.IMonitoring.model.Reservation; 
 import com.backend.IMonitoring.service.ClassroomService;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
-import java.time.LocalDateTime;
+import java.time.Instant; 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/classrooms")
 @RequiredArgsConstructor
+@CrossOrigin(origins = "*", allowedHeaders = "*")
 public class ClassroomController {
+
     private final ClassroomService classroomService;
 
-    // Modificado para devolver List<ClassroomDTO>
-    @GetMapping
-    public ResponseEntity<List<ClassroomDTO>> getAllClassrooms() {
-        return ResponseEntity.ok(classroomService.getAllClassroomsDTO());
-    }
-
-    // El resto de métodos que devuelven Classroom individuales podrían ser modificados a ClassroomDTO también si se desea consistencia
-    // Por ahora, solo se cambia getAllClassrooms para abordar el error de la lista.
-    @GetMapping("/{id}")
-    public ResponseEntity<Classroom> getClassroomById(@PathVariable String id) {
-        return ResponseEntity.ok(classroomService.getClassroomById(id));
-    }
-
     @PostMapping
-    public ResponseEntity<Classroom> createClassroom(@Valid @RequestBody ClassroomRequestDTO classroomRequestDTO) {
-        Classroom createdClassroom = classroomService.createClassroomFromDTO(classroomRequestDTO);
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ClassroomDTO> createClassroom(@Valid @RequestBody ClassroomRequestDTO classroomRequestDTO) {
+        ClassroomDTO createdClassroomDTO = classroomService.createClassroomFromDTO(classroomRequestDTO);
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
                 .path("/{id}")
-                .buildAndExpand(createdClassroom.getId())
+                .buildAndExpand(createdClassroomDTO.getId())
                 .toUri();
-        return ResponseEntity.created(location).body(createdClassroom);
+        return ResponseEntity.status(HttpStatus.CREATED).body(createdClassroomDTO);
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ClassroomDTO> getClassroomById(@PathVariable String id) {
+        ClassroomDTO classroomDTO = classroomService.getClassroomDTOById(id);
+        return ResponseEntity.ok(classroomDTO);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Classroom> updateClassroom(@PathVariable String id, @Valid @RequestBody ClassroomRequestDTO classroomRequestDTO) {
-        Classroom updatedClassroom = classroomService.updateClassroomFromDTO(id, classroomRequestDTO);
-        return ResponseEntity.ok(updatedClassroom);
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ClassroomDTO> updateClassroom(@PathVariable String id, @Valid @RequestBody ClassroomRequestDTO classroomRequestDTO) {
+        ClassroomDTO updatedClassroomDTO = classroomService.updateClassroomFromDTO(id, classroomRequestDTO);
+        return ResponseEntity.ok(updatedClassroomDTO);
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteClassroom(@PathVariable String id) {
         classroomService.deleteClassroom(id);
         return ResponseEntity.noContent().build();
     }
-    
-    @GetMapping("/type/{type}")
-    public ResponseEntity<List<Classroom>> getClassroomsByType(@PathVariable ClassroomType type) {
-        return ResponseEntity.ok(classroomService.getClassroomsByType(type));
+
+    @GetMapping
+    public ResponseEntity<List<ClassroomDTO>> getAllClassrooms() {
+        List<ClassroomDTO> classrooms = classroomService.getAllClassroomsDTO();
+        return ResponseEntity.ok(classrooms);
     }
 
-    @GetMapping("/capacity/{minCapacity}")
-    public ResponseEntity<List<Classroom>> getClassroomsByMinCapacity(@PathVariable Integer minCapacity) {
-        return ResponseEntity.ok(classroomService.getClassroomsByMinCapacity(minCapacity));
+    @GetMapping(params = "type")
+    public ResponseEntity<List<ClassroomDTO>> getClassroomsByType(@RequestParam ClassroomType type) {
+        List<ClassroomDTO> classrooms = classroomService.getClassroomsByType(type);
+        return ResponseEntity.ok(classrooms);
+    }
+
+    @GetMapping(params = "minCapacity")
+    public ResponseEntity<List<ClassroomDTO>> getClassroomsByMinCapacity(@RequestParam Integer minCapacity) {
+        List<ClassroomDTO> classrooms = classroomService.getClassroomsByMinCapacity(minCapacity);
+        return ResponseEntity.ok(classrooms);
     }
 
     @GetMapping("/available-now")
-    public ResponseEntity<List<Classroom>> getAvailableClassroomsNow() {
-        return ResponseEntity.ok(classroomService.getAvailableNow());
+    public ResponseEntity<List<ClassroomDTO>> getAvailableClassroomsNow() {
+        List<ClassroomDTO> classrooms = classroomService.getAvailableNow();
+        return ResponseEntity.ok(classrooms);
     }
-
+    
     @GetMapping("/unavailable-now")
-    public ResponseEntity<List<Classroom>> getUnavailableClassroomsNow() {
-        return ResponseEntity.ok(classroomService.getUnavailableNow());
-    }
-
-    @GetMapping("/stats/availability")
-    public ResponseEntity<ClassroomAvailabilitySummaryDTO> getAvailabilitySummary() {
-        return ResponseEntity.ok(classroomService.getAvailabilitySummary());
+    public ResponseEntity<List<ClassroomDTO>> getUnavailableClassroomsNow() {
+        List<ClassroomDTO> classrooms = classroomService.getUnavailableNow();
+        return ResponseEntity.ok(classrooms);
     }
 
     @PostMapping("/check-availability")
-    public ResponseEntity<Map<String, Boolean>> checkClassroomAvailability(@Valid @RequestBody AvailabilityRequest request) {
-        boolean isAvailable = classroomService.checkAvailability(request);
-        return ResponseEntity.ok(Map.of("isAvailable", isAvailable));
+    public ResponseEntity<Boolean> checkClassroomAvailability(@Valid @RequestBody AvailabilityRequest availabilityRequest) {
+        boolean isAvailable = classroomService.checkAvailability(availabilityRequest);
+        return ResponseEntity.ok(isAvailable);
     }
 
-    @GetMapping("/{classroomId}/reservations-by-date")
-    public ResponseEntity<List<Reservation>> getClassroomReservationsForDateRange(
+    @GetMapping("/{classroomId}/reservations")
+    public ResponseEntity<List<Reservation>> getReservationsForClassroom(
             @PathVariable String classroomId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate, // Espera formato ISO
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
-        List<Reservation> reservations = classroomService.getClassroomReservationsForDateRange(classroomId, startDate, endDate);
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant startDate, 
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant endDate,   
+            @RequestParam(defaultValue = "startTime") String sortField,
+            @RequestParam(defaultValue = "asc") String sortDirection) {
+        List<Reservation> reservations = classroomService.getClassroomReservationsForDateRange(classroomId, startDate, endDate, sortField, sortDirection);
         return ResponseEntity.ok(reservations);
     }
 }

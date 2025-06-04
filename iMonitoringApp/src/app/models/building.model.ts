@@ -1,8 +1,16 @@
-import { ClassroomsPage } from "../pages/classrooms/classrooms.page";
-
 export interface Building {
-  id?: string;
+  id: string;
   name: string;
-  location: string;
-  classrooms?: ClassroomsPage[];
+  location?: string;
+}
+
+export interface BuildingDTO {
+  id: string;
+  name: string;
+  location?: string; 
+}
+
+export interface BuildingRequestDTO {
+  name: string;
+  location?: string;
 }

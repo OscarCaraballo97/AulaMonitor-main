@@ -1,6 +1,7 @@
 package com.backend.IMonitoring.service;
 
 import com.backend.IMonitoring.dto.UserDTO;
+import com.backend.IMonitoring.dto.ReservationResponseDTO;
 import com.backend.IMonitoring.model.User;
 import com.backend.IMonitoring.model.Rol;
 import com.backend.IMonitoring.repository.UserRepository;
@@ -11,8 +12,11 @@ import com.backend.IMonitoring.exceptions.ResourceNotFoundException;
 import com.backend.IMonitoring.exceptions.UserAlreadyExistsException;
 import com.backend.IMonitoring.exceptions.InvalidCredentialsException;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException; 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,9 +28,11 @@ import java.util.Optional;
 @Service
 @RequiredArgsConstructor
 public class UserService {
+    private static final Logger logger = LoggerFactory.getLogger(UserService.class);
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final ReservationRepository reservationRepository; 
+    private final ReservationService reservationService;
 
     public List<User> getAllUsers() {
         return userRepository.findAll(Sort.by(Sort.Direction.ASC, "name"));
@@ -63,11 +69,10 @@ public class UserService {
         if (user.getPassword() == null || user.getPassword().isEmpty()) {
             throw new IllegalArgumentException("La contraseña es obligatoria para crear un nuevo usuario.");
         }
-       
-        if (!user.getPassword().startsWith("$2a$")) {
+        
+        if (!user.getPassword().startsWith("$2a$") && !user.getPassword().startsWith("$2b$") && !user.getPassword().startsWith("$2y$")) {
             user.setPassword(passwordEncoder.encode(user.getPassword()));
         }
-
 
         if (performingUser.getRole() == Rol.COORDINADOR) {
             if (user.getRole() == null) {
@@ -75,7 +80,6 @@ public class UserService {
             } else if (user.getRole() == Rol.ADMIN || user.getRole() == Rol.COORDINADOR) {
                 throw new UnauthorizedAccessException("Un Coordinador no puede crear usuarios con rol ADMIN o COORDINADOR.");
             }
-          
         } else if (performingUser.getRole() == Rol.ADMIN) {
             if (user.getRole() == null) {
                 user.setRole(Rol.ESTUDIANTE); 
@@ -83,7 +87,7 @@ public class UserService {
         } else {
             throw new UnauthorizedAccessException("No tienes permiso para crear usuarios.");
         }
-        
+        user.setEnabled(true); 
         return userRepository.save(user);
     }
     
@@ -93,7 +97,6 @@ public class UserService {
         return createUserEntityLogic(user, performingUser);
     }
 
-
     @Transactional
     public User updateUser(String id, UserDTO userDTO, User performingUser) {
         User existingUser = getUserById(id); 
@@ -102,19 +105,19 @@ public class UserService {
         boolean isPerformingCoordinator = performingUser.getRole() == Rol.COORDINADOR;
         boolean isSelf = existingUser.getId().equals(performingUser.getId());
 
-        if (!isPerformingAdmin && !isSelf && !isPerformingCoordinator) {
+        if (!isPerformingAdmin && !isSelf && 
+            !(isPerformingCoordinator && isUserManageableByCoordinator(existingUser.getRole()))) {
             throw new UnauthorizedAccessException("No tienes permiso para actualizar este usuario.");
         }
         
         if (userDTO.getName() != null) {
             if(isSelf || isPerformingAdmin || (isPerformingCoordinator && isUserManageableByCoordinator(existingUser.getRole()))) {
                 existingUser.setName(userDTO.getName());
-            } else if (isPerformingCoordinator) {
-                 throw new UnauthorizedAccessException("Un Coordinador no puede modificar el nombre de este tipo de usuario.");
+            } else {
+                throw new UnauthorizedAccessException("Un Coordinador no puede modificar el nombre de este tipo de usuario.");
             }
         }
 
-        // Actualizar email
         if (userDTO.getEmail() != null && !existingUser.getEmail().equalsIgnoreCase(userDTO.getEmail())) {
             if(isSelf || isPerformingAdmin || (isPerformingCoordinator && isUserManageableByCoordinator(existingUser.getRole()))) {
                 Optional<User> userWithNewEmail = userRepository.findByEmail(userDTO.getEmail());
@@ -122,28 +125,27 @@ public class UserService {
                     throw new UserAlreadyExistsException("El nuevo correo electrónico '" + userDTO.getEmail() + "' ya está en uso por otro usuario.");
                 }
                 existingUser.setEmail(userDTO.getEmail());
-            } else if (isPerformingCoordinator) {
-                throw new UnauthorizedAccessException("Un Coordinador no puede modificar el email de este tipo de usuario.");
+            } else {
+                 throw new UnauthorizedAccessException("Un Coordinador no puede modificar el email de este tipo de usuario.");
             }
         }
         
         if (userDTO.getAvatarUrl() != null) {
-             if(isSelf || isPerformingAdmin || (isPerformingCoordinator && isUserManageableByCoordinator(existingUser.getRole()))) {
+            if(isSelf || isPerformingAdmin || (isPerformingCoordinator && isUserManageableByCoordinator(existingUser.getRole()))) {
                 existingUser.setAvatarUrl(userDTO.getAvatarUrl().isEmpty() ? null : userDTO.getAvatarUrl());
-            } else if (isPerformingCoordinator) {
+            } else {
                 throw new UnauthorizedAccessException("Un Coordinador no puede modificar el avatar de este tipo de usuario.");
             }
-        } else if (userDTO.getAvatarUrl() == null && existingUser.getAvatarUrl() != null) {
-            if(isSelf || isPerformingAdmin || (isPerformingCoordinator && isUserManageableByCoordinator(existingUser.getRole()))) {
+        } else if (userDTO.getAvatarUrl() == null && existingUser.getAvatarUrl() != null) { 
+             if(isSelf || isPerformingAdmin || (isPerformingCoordinator && isUserManageableByCoordinator(existingUser.getRole()))) {
                 existingUser.setAvatarUrl(null);
             }
         }
 
-
         if (userDTO.getRole() != null && userDTO.getRole() != existingUser.getRole()) {
             if (isPerformingAdmin) {
                 if (isSelf && userDTO.getRole() != Rol.ADMIN) {
-                     throw new UnauthorizedAccessException("Un administrador no puede cambiar su propio rol a uno no administrador.");
+                    throw new UnauthorizedAccessException("Un administrador no puede cambiar su propio rol a uno no administrador.");
                 }
                 existingUser.setRole(userDTO.getRole());
             } else if (isPerformingCoordinator) {
@@ -159,26 +161,8 @@ public class UserService {
             }
         }
         
-
-        if (existingUser.isEnabled() != userDTO.isEnabled()) {
-            if (isPerformingAdmin) {
-                 if (isSelf && !userDTO.isEnabled()) {
-                    throw new UnauthorizedAccessException("Un administrador no puede deshabilitar su propia cuenta.");
-                }
-                existingUser.setEnabled(userDTO.isEnabled());
-            } else if (isPerformingCoordinator) {
-                 if (!isUserManageableByCoordinator(existingUser.getRole())) {
-                     throw new UnauthorizedAccessException("Un Coordinador no puede cambiar el estado de este tipo de usuario.");
-                 }
-                 if (isSelf) {
-                     throw new UnauthorizedAccessException("Un Coordinador no puede deshabilitar su propia cuenta.");
-                 }
-                 existingUser.setEnabled(userDTO.isEnabled());
-            } else { 
-                throw new UnauthorizedAccessException("No tienes permiso para cambiar el estado de habilitación de este usuario.");
-            }
-        }
-        
+     
+            
         return userRepository.save(existingUser);
     }
     
@@ -198,19 +182,17 @@ public class UserService {
         boolean isSelf = userToUpdate.getId().equals(performingUser.getId());
 
         if (!isSelf && !isAdmin) {
-           
             throw new UnauthorizedAccessException("No tienes permiso para cambiar la contraseña de este usuario.");
         }
 
         if (isSelf) { 
             if (currentPassword == null || currentPassword.isEmpty()){
-                 throw new IllegalArgumentException("La contraseña actual es requerida para cambiar tu contraseña.");
+                throw new IllegalArgumentException("La contraseña actual es requerida para cambiar tu contraseña.");
             }
             if(!passwordEncoder.matches(currentPassword, userToUpdate.getPassword())) {
                 throw new InvalidCredentialsException("La contraseña actual es incorrecta.");
             }
         }
-
         userToUpdate.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(userToUpdate);
     }
@@ -220,45 +202,53 @@ public class UserService {
         User userToDelete = getUserById(id);
 
         boolean isAdmin = performingUser.getRole() == Rol.ADMIN;
-        boolean isCoordinator = performingUser.getRole() == Rol.COORDINADOR;
-
+        
         if (isAdmin) {
             if (userToDelete.getId().equals(performingUser.getId())) {
                 throw new UnauthorizedAccessException("Un administrador no puede eliminarse a sí mismo.");
             }
-        } else if (isCoordinator) {
+        } else if (performingUser.getRole() == Rol.COORDINADOR) {
             if (!isUserManageableByCoordinator(userToDelete.getRole())) {
                 throw new UnauthorizedAccessException("Un Coordinador no tiene permiso para eliminar usuarios con el rol: " + userToDelete.getRole());
             }
             if (userToDelete.getId().equals(performingUser.getId())) {
-                 throw new UnauthorizedAccessException("Un coordinador no puede eliminarse a sí mismo.");
+                throw new UnauthorizedAccessException("Un coordinador no puede eliminarse a sí mismo.");
             }
         } else { 
             throw new UnauthorizedAccessException("No tienes permiso para eliminar este usuario.");
         }
 
-
+        logger.info("Eliminando reservaciones para el usuario: {}", id);
         List<Reservation> userReservations = reservationRepository.findByUserId(id, Sort.unsorted());
         if (userReservations != null && !userReservations.isEmpty()) {
             reservationRepository.deleteAll(userReservations); 
+            logger.info("Eliminadas {} reservaciones asociadas al usuario {}", userReservations.size(), id);
         }
         userRepository.delete(userToDelete);
     }
     
-    public List<Reservation> getReservationsByUserId(String userId) {
-
-        getUserById(userId); 
-        return reservationRepository.findByUserId(userId, Sort.by(Sort.Direction.DESC, "startTime"));
+    public List<ReservationResponseDTO> getReservationsByUserIdDTO(String userId) {
+        getUserById(userId);
+        return reservationService.getAllReservations(null, userId, null, null, null, "startTime", "desc");
     }
     
     public User getCurrentAuthenticatedUser() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         if (principal instanceof UserDetailsImpl) {
-            return ((UserDetailsImpl) principal).getUserEntity();
+            User user = ((UserDetailsImpl) principal).getUserEntity();
+             if (user == null) { 
+                return userRepository.findByEmail(((UserDetailsImpl) principal).getUsername())
+                     .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado desde UserDetailsImpl fallback: " + ((UserDetailsImpl) principal).getUsername()));
+            }
+            return user;
+        } else if (principal instanceof org.springframework.security.core.userdetails.User) { 
+            String username = ((org.springframework.security.core.userdetails.User) principal).getUsername();
+            return userRepository.findByEmail(username) 
+                .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado desde principal estándar: " + username));
         } else if (principal instanceof String && "anonymousUser".equals(principal)) {
-            
-             throw new UnauthorizedAccessException("Usuario no autenticado.");
+            throw new UnauthorizedAccessException("Usuario no autenticado (anónimo).");
         }
-        throw new IllegalStateException("El principal de autenticación no es del tipo esperado: " + (principal != null ? principal.getClass().getName() : "null"));
+        logger.warn("El principal de autenticación no es del tipo esperado: {}", (principal != null ? principal.getClass().getName() : "null"));
+        throw new UnauthorizedAccessException("Tipo de principal de autenticación no soportado.");
     }
 }

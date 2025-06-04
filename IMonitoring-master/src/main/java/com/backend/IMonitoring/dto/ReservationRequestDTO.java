@@ -1,33 +1,38 @@
 package com.backend.IMonitoring.dto;
 
-import com.backend.IMonitoring.model.ReservationStatus; // Asegúrate de importar ReservationStatus
+import com.backend.IMonitoring.model.ReservationStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import java.time.Instant;
 
-import java.time.LocalDateTime;
-
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class ReservationRequestDTO {
 
-    @NotBlank(message = "El ID del aula (classroomId) es obligatorio")
+    @NotBlank(message = "El ID del aula es obligatorio.")
     private String classroomId;
 
     private String userId; 
 
-    @NotNull(message = "La fecha y hora de inicio es obligatoria")
-    private LocalDateTime startTime;
+    @NotNull(message = "La hora de inicio es obligatoria.")
+    private Instant startTime;
 
-    @NotNull(message = "La fecha y hora de fin es obligatoria")
-    private LocalDateTime endTime;
+    @NotNull(message = "La hora de fin es obligatoria.")
+    private Instant endTime; 
 
+    @NotBlank(message = "El propósito es obligatorio.")
     private String purpose;
 
-    private ReservationStatus status; 
+    private ReservationStatus status;
+
+    public String getClassroomId() { return classroomId; }
+    public void setClassroomId(String classroomId) { this.classroomId = classroomId; }
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
+    public Instant getStartTime() { return startTime; }
+    public void setStartTime(Instant startTime) { this.startTime = startTime; }
+    public Instant getEndTime() { return endTime; }
+    public void setEndTime(Instant endTime) { this.endTime = endTime; }
+    public String getPurpose() { return purpose; }
+    public void setPurpose(String purpose) { this.purpose = purpose; }
+    public ReservationStatus getStatus() { return status; }
+    public void setStatus(ReservationStatus status) { this.status = status; }
 }

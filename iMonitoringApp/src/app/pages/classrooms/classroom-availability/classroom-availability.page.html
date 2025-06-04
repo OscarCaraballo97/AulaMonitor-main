@@ -34,7 +34,7 @@
                       class="w-full mt-1 dark:text-kwd-light dark:bg-kwd-dark"
                       okText="Aceptar" cancelText="Cancelar">
             <ion-select-option *ngFor="let classroom of allClassrooms" [value]="classroom.id">
-              {{ classroom.name }} ({{ classroom.building?.name || 'N/A' }})
+              {{ classroom.name }} ({{ classroom.buildingName || 'N/A' }})
             </ion-select-option>
           </ion-select>
           <div *ngIf="!isLoadingClassrooms && allClassrooms.length === 0" class="text-gray-500 dark:text-gray-400 py-2">

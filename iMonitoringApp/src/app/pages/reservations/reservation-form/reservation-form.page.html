@@ -22,7 +22,7 @@
                     [ngClass]="{'ion-invalid ion-touched': reservationForm.get('classroomId')?.invalid && reservationForm.get('classroomId')?.touched}">
           <ion-select-option *ngFor="let classroom of classrooms" [value]="classroom.id">
             {{ classroom.name }}
-            <span *ngIf="classroom.building"> ({{ classroom.building.name }})</span>
+            <span *ngIf="classroom.buildingName"> ({{ classroom.buildingName }})</span>
           </ion-select-option>
         </ion-select>
       </ion-item>

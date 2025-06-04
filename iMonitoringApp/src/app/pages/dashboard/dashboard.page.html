@@ -117,6 +117,31 @@
           </ion-list>
         </div>
       </div>
+      <ion-card *ngIf="upcomingReservations && upcomingReservations.length > 0" class="dark:bg-kwd-darker">
+        <ion-card-header>
+          <ion-card-title class="dark:text-kwd-light">Próximas Reservas</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <ion-list lines="none">
+            <ion-item *ngFor="let reservation of upcomingReservations" class="dark:bg-kwd-darker" (click)="viewReservationDetails(reservation)" detail="false">
+              <ion-icon [name]="reservation.classroom?.type === ReservationClassroomTypeEnum.LABORATORIO ? 'flask-outline' : (reservation.classroom?.type === ReservationClassroomTypeEnum.AUDITORIO ? 'megaphone-outline' : 'easel-outline')" slot="start" class="text-xl opacity-80" [style.color]="getEventColor(reservation.status)"></ion-icon>
+              <ion-label class="dark:text-gray-200">
+                <h3 class="font-semibold">{{ reservation.purpose || 'N/A' }}</h3>
+                <p class="text-xs dark:text-gray-400">{{ reservation.classroom?.name }}</p>
+                <p class="text-xs dark:text-gray-400">
+                  {{ (reservation.startTime && (reservation.startTime.endsWith('Z') ? reservation.startTime : reservation.startTime + 'Z')) | date:'dd/MM/yy, HH:mm':'America/Bogota':'es-CO' }}
+                   - 
+                  {{ (reservation.endTime && (reservation.endTime.endsWith('Z') ? reservation.endTime : reservation.endTime + 'Z')) | date:'HH:mm':'America/Bogota':'es-CO' }}
+                </p>
+                 <p style="font-size: 0.7rem; color: red; background-color: white;">
+                    DEBUG CRUDO startTime: {{ reservation.startTime }}
+                 </p>
+                 </ion-label>
+              <ion-badge slot="end" [color]="reservation.status === ReservationStatusEnum.CONFIRMADA ? 'success' : (reservation.status === ReservationStatusEnum.PENDIENTE ? 'warning' : 'medium')" class="text-xs">{{ reservation.status | titlecase }}</ion-badge>
+            </ion-item>
+          </ion-list>
+        </ion-card-content>
+      </ion-card>
 
     </div> 
 

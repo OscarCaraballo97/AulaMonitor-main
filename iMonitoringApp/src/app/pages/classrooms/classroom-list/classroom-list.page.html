@@ -56,7 +56,7 @@
         <tbody class="bg-white divide-y divide-gray-200 dark:bg-kwd-darker dark:divide-gray-700">
           <tr *ngFor="let classroom of classrooms" class="hover:bg-gray-50 dark:hover:bg-kwd-dark-accent/50">
             <td class="px-6 py-4 text-sm font-medium text-gray-900 whitespace-nowrap dark:text-kwd-light">{{ classroom.name }}</td>
-            <td class="px-6 py-4 text-sm text-gray-500 whitespace-nowrap dark:text-gray-300">{{ classroom.building?.name || classroom.buildingId || 'N/A' }}</td>
+            <td class="px-6 py-4 text-sm text-gray-500 whitespace-nowrap dark:text-gray-300">{{ classroom.buildingName || classroom.buildingId || 'N/A' }}</td>
             <td class="px-6 py-4 text-sm text-gray-500 whitespace-nowrap dark:text-gray-300">{{ classroom.capacity }}</td>
             <td class="px-6 py-4 text-sm text-gray-500 whitespace-nowrap dark:text-gray-300">{{ classroom.type | titlecase }}</td>
             <td class="px-6 py-4 text-sm text-gray-500 whitespace-nowrap dark:text-gray-300">{{ classroom.resources || 'N/A' }}</td>

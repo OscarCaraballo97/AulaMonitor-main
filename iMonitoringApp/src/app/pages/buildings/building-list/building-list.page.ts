@@ -1,28 +1,29 @@
-
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { RouterModule } from '@angular/router';
-import { IonicModule, AlertController, LoadingController, ToastController, NavController, IonRefresher } from '@ionic/angular';
+import { RouterModule, Router } from '@angular/router';
+import { AlertController, LoadingController, ToastController, NavController, IonRefresher } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
 import { BuildingService } from '../../../services/building.service';
-import { Building } from '../../../models/building.model';
+import { BuildingDTO } from '../../../models/building.model'; 
 import { AuthService } from '../../../services/auth.service';
 import { Rol } from '../../../models/rol.model';
 import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { takeUntil, finalize } from 'rxjs/operators';
+import { HttpErrorResponse } from '@angular/common/http';
+import { IonicModule } from '@ionic/angular';
 
 @Component({
   selector: 'app-building-list',
   templateUrl: './building-list.page.html',
   styleUrls: ['./building-list.page.scss'],
   standalone: true,
-  imports: [IonicModule, CommonModule, RouterModule],
+  imports: [IonicModule, CommonModule, RouterModule], 
 })
 export class BuildingListPage implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
-  buildings: Building[] = [];
+  buildings: BuildingDTO[] = []; 
   isLoading = false;
   userRole: Rol | null = null;
-  errorMessage: string = '';
+  errorMessage: string | null = null;
 
   constructor(
     private buildingService: BuildingService,
@@ -31,7 +32,8 @@ export class BuildingListPage implements OnInit, OnDestroy {
     private loadingCtrl: LoadingController,
     private toastCtrl: ToastController,
     private navCtrl: NavController,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private router: Router
   ) {}
 
   ngOnInit() {
@@ -52,9 +54,9 @@ export class BuildingListPage implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  async loadBuildings(event?: CustomEvent) {
+  async loadBuildings(event?: any) { 
     this.isLoading = true;
-    this.errorMessage = '';
+    this.errorMessage = null;
     let loadingOverlay: HTMLIonLoadingElement | undefined;
 
     if (!event) {
@@ -63,38 +65,45 @@ export class BuildingListPage implements OnInit, OnDestroy {
     }
 
     this.buildingService.getAllBuildings()
-      .pipe(takeUntil(this.destroy$))
+      .pipe(
+        takeUntil(this.destroy$),
+        finalize(async () => {
+          this.isLoading = false;
+          if (loadingOverlay) { 
+            try { await loadingOverlay.dismiss(); } catch(e) { console.warn("Error dismissing loading", e); }
+          }
+          if (event && event.target && typeof event.target.complete === 'function') {
+            (event.target as IonRefresher).complete();
+          }
+          this.cdr.detectChanges();
+        })
+      )
       .subscribe({
-        next: (data: Building[]) => {
+        next: (data: BuildingDTO[]) => { 
           this.buildings = data;
         },
-        error: async (err: Error) => {
-          this.errorMessage = err.message || 'Error al cargar edificios.';
-          await this.presentToast(this.errorMessage, 'danger', 'warning-outline');
-        },
-        complete: async () => {
-          this.isLoading = false;
-          if (loadingOverlay) await loadingOverlay.dismiss();
-          if (event && event.target) (event.target as unknown as IonRefresher).complete();
-          this.cdr.detectChanges();
+        error: async (err: HttpErrorResponse | Error) => {
+          const message = (err instanceof HttpErrorResponse) ? err.error?.message || err.message : err.message;
+          this.errorMessage = message || 'Error al cargar edificios.';
+          await this.presentToast(this.errorMessage, 'danger');
         }
       });
   }
 
   canManageBuildings(): boolean {
-    return this.userRole === Rol.ADMIN || this.userRole === Rol.PROFESOR;
+    return this.userRole === Rol.ADMIN; 
   }
 
   navigateToAddBuilding() {
-    this.navCtrl.navigateForward('/app/buildings/new');
+    this.router.navigate(['/app/buildings/new']);
   }
 
   navigateToEditBuilding(buildingId?: string) {
     if (!buildingId) return;
-    this.navCtrl.navigateForward(`/app/buildings/edit/${buildingId}`);
+    this.router.navigate(['/app/buildings/edit', buildingId]);
   }
 
-  async confirmDelete(building: Building) {
+  async confirmDelete(building: BuildingDTO) { 
     if (!building.id || !this.canManageBuildings()) return;
 
     const alert = await this.alertCtrl.create({
@@ -118,34 +127,36 @@ export class BuildingListPage implements OnInit, OnDestroy {
     await loading.present();
 
     this.buildingService.deleteBuilding(id)
-    .pipe(takeUntil(this.destroy$))
+    .pipe(
+      takeUntil(this.destroy$),
+      finalize(async () => {
+         try { await loading.dismiss(); } catch(e) { console.warn("Error dismissing loading", e); }
+      })
+    )
     .subscribe({
       next: async () => {
-        await this.presentToast('Edificio eliminado exitosamente.', 'success', 'checkmark-circle-outline');
+        await this.presentToast('Edificio eliminado exitosamente.', 'success');
         this.loadBuildings(); 
       },
-      error: async (err: Error) => {
-        await this.presentToast(err.message || 'Error al eliminar edificio.', 'danger', 'warning-outline');
-      },
-      complete: async () => {
-        await loading.dismiss();
+      error: async (err: HttpErrorResponse | Error) => {
+        const message = (err instanceof HttpErrorResponse) ? err.error?.message || err.message : err.message;
+        await this.presentToast(message || 'Error al eliminar edificio.', 'danger');
       }
     });
   }
 
-  async presentToast(message: string, color: 'success' | 'danger' | 'warning', iconName?: string) {
+  async presentToast(message: string, color: 'success' | 'danger' | 'warning', duration: number = 3000) {
     const toast = await this.toastCtrl.create({
       message: message,
-      duration: 3500,
+      duration: duration,
       color: color,
       position: 'top',
-      icon: iconName,
-      cssClass: `kwd-toast kwd-toast-${color}`
+      buttons: [{text:'OK',role:'cancel'}] 
     });
     await toast.present();
   }
 
-  handleRefresh(event: CustomEvent) {
+  handleRefresh(event: any) { 
     this.loadBuildings(event);
   }
 }

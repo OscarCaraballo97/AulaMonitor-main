@@ -1,7 +1,7 @@
 import { enableProdMode, importProvidersFrom, LOCALE_ID } from '@angular/core';
 import { bootstrapApplication } from '@angular/platform-browser';
 import { RouteReuseStrategy, provideRouter, withPreloading, PreloadAllModules, withComponentInputBinding } from '@angular/router';
-import { IonicModule, IonicRouteStrategy } from '@ionic/angular';
+import { IonicRouteStrategy, provideIonicAngular } from '@ionic/angular/standalone';
 import { IonicStorageModule } from '@ionic/storage-angular';
 import { provideHttpClient, withInterceptors } from '@angular/common/http'; 
 
@@ -23,9 +23,11 @@ if (environment.production) {
 
 bootstrapApplication(AppComponent, {
   providers: [
-    { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
-    importProvidersFrom(IonicModule.forRoot({})),
-    importProvidersFrom(IonicStorageModule.forRoot()),
+    provideIonicAngular({
+        mode: 'md',
+    }), 
+
+    importProvidersFrom(IonicStorageModule.forRoot()), 
     provideRouter(routes, withPreloading(PreloadAllModules), withComponentInputBinding()),
     provideHttpClient(withInterceptors([jwtInterceptorFn])),
     { provide: LOCALE_ID, useValue: 'es-CO' }
