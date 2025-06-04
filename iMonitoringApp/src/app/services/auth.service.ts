@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { BehaviorSubject, Observable, throwError, forkJoin, of } from 'rxjs';
 import { catchError, tap, map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
@@ -161,8 +161,8 @@ export class AuthService {
     }
   }
   
-  verifyEmail(token: string): Observable<any> {
-    return this.http.get(`${this.apiUrl}/verify-email?token=${token}`)
+  verifyEmail(token: string): Observable<string> {
+    return this.http.get(`${this.apiUrl}/verify-email?token=${token}`, { responseType: 'text' }) // Añadido responseType: 'text'
       .pipe(catchError(err => this.handleError(err, 'verificación de email')));
   }
 

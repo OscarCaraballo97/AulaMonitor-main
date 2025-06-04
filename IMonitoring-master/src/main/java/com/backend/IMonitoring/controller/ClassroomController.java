@@ -2,6 +2,7 @@ package com.backend.IMonitoring.controller;
 
 import com.backend.IMonitoring.dto.AvailabilityRequest;
 import com.backend.IMonitoring.dto.ClassroomAvailabilitySummaryDTO;
+import com.backend.IMonitoring.dto.ClassroomDTO; // Importar ClassroomDTO
 import com.backend.IMonitoring.dto.ClassroomRequestDTO;
 import com.backend.IMonitoring.model.Classroom;
 import com.backend.IMonitoring.model.ClassroomType;
@@ -25,12 +26,14 @@ import java.util.Map;
 public class ClassroomController {
     private final ClassroomService classroomService;
 
- 
+    // Modificado para devolver List<ClassroomDTO>
     @GetMapping
-    public ResponseEntity<List<Classroom>> getAllClassrooms() {
-        return ResponseEntity.ok(classroomService.getAllClassrooms());
+    public ResponseEntity<List<ClassroomDTO>> getAllClassrooms() {
+        return ResponseEntity.ok(classroomService.getAllClassroomsDTO());
     }
 
+    // El resto de métodos que devuelven Classroom individuales podrían ser modificados a ClassroomDTO también si se desea consistencia
+    // Por ahora, solo se cambia getAllClassrooms para abordar el error de la lista.
     @GetMapping("/{id}")
     public ResponseEntity<Classroom> getClassroomById(@PathVariable String id) {
         return ResponseEntity.ok(classroomService.getClassroomById(id));

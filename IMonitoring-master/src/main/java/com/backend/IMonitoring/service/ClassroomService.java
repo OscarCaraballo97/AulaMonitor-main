@@ -2,6 +2,7 @@ package com.backend.IMonitoring.service;
 
 import com.backend.IMonitoring.dto.ClassroomAvailabilitySummaryDTO;
 import com.backend.IMonitoring.dto.AvailabilityRequest;
+import com.backend.IMonitoring.dto.ClassroomDTO; // Importar ClassroomDTO
 import com.backend.IMonitoring.dto.ClassroomRequestDTO;
 import com.backend.IMonitoring.model.Classroom;
 import com.backend.IMonitoring.model.ClassroomType;
@@ -18,6 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors; // Importar Collectors
 
 @Service
 @RequiredArgsConstructor
@@ -27,9 +29,29 @@ public class ClassroomService {
     private final BuildingRepository buildingRepository;
     private final ReservationRepository reservationRepository;
 
-    public List<Classroom> getAllClassrooms() {
-        return classroomRepository.findAll(Sort.by(Sort.Direction.ASC, "name"));
+    @Transactional
+    public List<ClassroomDTO> getAllClassroomsDTO() { // Modificado para devolver List<ClassroomDTO>
+        List<Classroom> classrooms = classroomRepository.findAll(Sort.by(Sort.Direction.ASC, "name"));
+        return classrooms.stream()
+                .map(this::convertToDTO) // Mapear cada entidad a DTO
+                .collect(Collectors.toList());
     }
+
+    // Nuevo método para convertir entidad Classroom a ClassroomDTO
+    private ClassroomDTO convertToDTO(Classroom classroom) {
+        if (classroom == null) {
+            return null;
+        }
+        return ClassroomDTO.builder()
+                .id(classroom.getId())
+                .name(classroom.getName())
+                .capacity(classroom.getCapacity())
+                .type(classroom.getType())
+                .resources(classroom.getResources())
+                .buildingId(classroom.getBuilding() != null ? classroom.getBuilding().getId() : null) // Asegurarse de obtener el buildingId
+                .build();
+    }
+
 
     public Classroom getClassroomById(String id) {
         return classroomRepository.findById(id)

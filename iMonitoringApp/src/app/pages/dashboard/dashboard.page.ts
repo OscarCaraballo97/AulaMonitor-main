@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild } from '@angular/core';
-import { CommonModule, DatePipe } from '@angular/common';
+import { CommonModule, DatePipe, formatDate } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { LoadingController, ToastController, AlertController } from '@ionic/angular/standalone';
@@ -93,14 +93,14 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   ionViewWillEnter() {
-   
+    
     if (this.currentUser && this.userRole) {
 
         if (!this.isLoading) {
              this.loadDashboardData(true);
         }
     } else {
-     
+      
       this.authService.loadToken();
     }
   }
@@ -125,7 +125,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.cdr.detectChanges();
 
     let loadingIndicator: HTMLIonLoadingElement | undefined;
-   
+    
     if (!isRefresh || (isRefresh && this.upcomingReservations.length === 0 && this.pendingReservationsCount === 0 && !(this.userRole === Rol.ESTUDIANTE || this.userRole === Rol.TUTOR || this.userRole === Rol.PROFESOR))) {
         loadingIndicator = await this.loadingCtrl.create({ message: isRefresh ? 'Actualizando...' : 'Cargando dashboard...' });
         await loadingIndicator.present();
@@ -191,27 +191,38 @@ export class DashboardPage implements OnInit, OnDestroy {
 
   navigateTo(route: string) { this.router.navigateByUrl(route); }
 
+  async handleRefresh(event?: any) {
+    await this.loadDashboardData(true)
+    if (event && event.target && typeof event.target.complete === 'function') {
+      event.target.complete();
+    }
+  }
+
   async viewReservationDetails(reservation: Reservation) {
     if (!reservation || !reservation.id) {
       this.presentToast('No se pueden mostrar los detalles: reserva no válida.', 'warning', 2000);
       return;
     }
-
-
-    const startTime = reservation.startTime ? this.datePipe.transform(new Date(reservation.startTime), 'dd/MM/yyyy, HH:mm', 'America/Bogota') : 'N/A';
-    const endTime = reservation.endTime ? this.datePipe.transform(new Date(reservation.endTime), 'HH:mm', 'America/Bogota') : 'N/A';
+   
+    const startTime = reservation.startTime ? formatDate(new Date(reservation.startTime + (reservation.startTime.endsWith('Z') ? '' : 'Z')), 'dd/MM/yyyy, HH:mm', 'es-CO', 'America/Bogota') : 'N/A';
+    const endTime = reservation.endTime ? formatDate(new Date(reservation.endTime + (reservation.endTime.endsWith('Z') ? '' : 'Z')), 'HH:mm', 'es-CO', 'America/Bogota') : 'N/A'; 
     const statusDisplay = reservation.status ? (reservation.status as string).charAt(0).toUpperCase() + (reservation.status as string).slice(1).toLowerCase().replace('_', ' ') : 'N/A';
+    
+    const message = `Motivo: ${reservation.purpose || 'No especificado'}\n` +
+                   `Aula: ${reservation.classroom?.name || 'N/A'} (${reservation.classroom?.buildingName || 'N/A'})\n` +
+                   `Inicio: ${startTime}\n` +
+                   `Fin: ${endTime}\n` +
+                   `Estado: ${statusDisplay}\n` +
+                   `Reservado por: ${reservation.user?.name || 'N/A'} (${reservation.user?.email || 'N/A'})\n` +
+                   `ID Reserva: ${reservation.id}`;
 
-    const message = `
-      <p><strong>Motivo:</strong> ${reservation.purpose || 'No especificado'}</p>
-      <p><strong>Aula:</strong> ${reservation.classroom?.name || 'N/A'} (${reservation.classroom?.buildingName || 'N/A'})</p>
-      <p><strong>Inicio:</strong> ${startTime}</p>
-      <p><strong>Fin:</strong> ${endTime}</p>
-      <p><strong>Estado:</strong> <span style="color:${this.getEventColor(reservation.status)}; font-weight:bold;">${statusDisplay}</span></p>
-      <p><strong>Reservado por:</strong> ${reservation.user?.name || 'N/A'} (${reservation.user?.email || 'N/A'})</p>
-      <p><small>ID Reserva: ${reservation.id}</small></p>
-    `;
-    const alert = await this.alertCtrl.create({ header: 'Detalles de la Reserva', message: message, buttons: ['OK'], mode: 'ios' });
+    const alert = await this.alertCtrl.create({ 
+      header: 'Detalles de la Reserva', 
+      message: message, 
+      buttons: ['OK'], 
+      mode: 'ios',
+      cssClass: 'reservation-detail-alert' 
+    });
     await alert.present();
   }
 
@@ -220,15 +231,8 @@ export class DashboardPage implements OnInit, OnDestroy {
       case ReservationStatus.CONFIRMADA: return 'var(--ion-color-success, #2dd36f)';
       case ReservationStatus.PENDIENTE: return 'var(--ion-color-warning, #ffc409)';
       case ReservationStatus.CANCELADA: return 'var(--ion-color-danger, #eb445a)';
-      case ReservationStatus.RECHAZADA: return 'var(--ion-color-medium, #92949c)'; // Usar un color más distintivo o oscuro
+      case ReservationStatus.RECHAZADA: return 'var(--ion-color-medium, #92949c)';
       default: return 'var(--ion-color-primary, #3880ff)';
-    }
-  }
-
-  async handleRefresh(event?: any) {
-    await this.loadDashboardData(true);
-    if (event && event.target && typeof event.target.complete === 'function') {
-      event.target.complete();
     }
   }
 
@@ -238,8 +242,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   }
 
   toggleMyReservationsSection() {
-    this.showMyReservationsSection = !this.showMyReservationsSection;
-    this.cdr.detectChanges();
+    this.showMyReservationsSection = !this.showMyReservationsSection; 
   }
 
   public doLogout() {

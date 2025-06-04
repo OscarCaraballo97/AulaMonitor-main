@@ -20,22 +20,29 @@ export enum ReservationStatus {
   CANCELADA = 'CANCELADA'
 }
 
-export interface Reservation {
-  id?: string;
-  classroom?: ReservationClassroomDetails; 
-  user?: ReservationUserDetails;           
-  startTime: string;  
-  endTime: string;   
-  status: ReservationStatus;
-  purpose?: string;
-  createdAt?: string;   
-  updatedAt?: string;
-}
-
 export interface ReservationCreationData {
   classroomId: string;
   startTime: string;   
   endTime: string;    
   purpose?: string;
   userId?: string;    
+}
+export interface Reservation {
+  id: string;
+  purpose: string;
+  startTime: string;
+  endTime: string;
+  status: ReservationStatus; 
+  user?: ReservationUserDetails; 
+  classroom?: ReservationClassroomDetails;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ReservationUserDetails {
+  id: string;
+  name: string;
+  email: string;
+  role?: Rol; 
+  avatarUrl?: string;
 }

@@ -9,14 +9,6 @@ import { IonicModule, PopoverController } from '@ionic/angular';
 
   template: `
     <ion-list lines="none" class="dark:bg-kwd-darker dark:text-kwd-light">
-      <ion-item button detail="false" (click)="dismiss('notifications')">
-        <ion-icon name="notifications-outline" slot="start" aria-hidden="true"></ion-icon>
-        <ion-label>Notificaciones</ion-label>
-      </ion-item>
-      <ion-item button detail="false" (click)="dismiss('search')">
-        <ion-icon name="search-outline" slot="start" aria-hidden="true"></ion-icon>
-        <ion-label>Buscar</ion-label>
-      </ion-item>
       <ion-item button detail="false" (click)="dismiss('settings')">
         <ion-icon name="settings-outline" slot="start" aria-hidden="true"></ion-icon>
         <ion-label>Configuración</ion-label>

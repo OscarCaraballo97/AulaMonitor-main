@@ -1,26 +1,20 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { IonicModule, LoadingController, ToastController, NavController, AlertController } from '@ionic/angular';
-import { CommonModule, formatDate } from '@angular/common';
+import {LoadingController, ToastController, NavController, AlertController } from '@ionic/angular/standalone';
+import { CommonModule, formatDate, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { firstValueFrom, Subject } from 'rxjs';
-import { takeUntil, catchError, tap, take, finalize } from 'rxjs/operators'; // Asegúrate que finalize esté aquí
-
-import { Calendar, CalendarOptions, EventInput, EventClickArg, DateSelectArg, EventApi } from '@fullcalendar/core';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import listPlugin from '@fullcalendar/list';
-import interactionPlugin from '@fullcalendar/interaction';
-import esLocale from '@fullcalendar/core/locales/es';
+import { firstValueFrom, Subject, forkJoin, of, combineLatest } from 'rxjs';
+import { takeUntil, catchError, tap, take, finalize, map, distinctUntilChanged, switchMap } from 'rxjs/operators';
 
 import { ClassroomService } from '../../../services/classroom.service';
-import { ReservationService } from '../../../services/reservation.service';
+import { ReservationService, ReservationListFilters } from '../../../services/reservation.service';
 import { AuthService } from '../../../services/auth.service';
 import { Classroom } from '../../../models/classroom.model';
 import { Reservation, ReservationStatus } from '../../../models/reservation.model';
 import { User } from '../../../models/user.model';
 import { Rol } from '../../../models/rol.model';
 import { HttpErrorResponse } from '@angular/common/http';
+import { IonicModule } from '@ionic/angular';
 
 @Component({
   selector: 'app-classroom-availability',
@@ -32,10 +26,11 @@ import { HttpErrorResponse } from '@angular/common/http';
     CommonModule,
     FormsModule,
     RouterModule,
-  ]
+  ],
+  providers: [DatePipe]
 })
-export class ClassroomAvailabilityPage implements OnInit, AfterViewInit, OnDestroy {
-  @ViewChild('calendarEl') calendarEl!: ElementRef<HTMLDivElement>;
+export class ClassroomAvailabilityPage implements OnInit, OnDestroy {
+
 
   private destroy$ = new Subject<void>();
 
@@ -44,14 +39,19 @@ export class ClassroomAvailabilityPage implements OnInit, AfterViewInit, OnDestr
   currentUser: User | null = null;
   userRole: Rol | null = null;
 
-  calendarApi?: Calendar;
-  calendarOptions!: CalendarOptions;
-  isLoadingCalendar = true;
   isLoadingClassrooms = true;
-  currentReservations: Reservation[] = [];
+  isLoadingTimes = false; 
+  existingReservationsForDay: Reservation[] = [];
   
   public RolEnum = Rol;
   public ReservationStatusEnum = ReservationStatus;
+
+
+  selectedDateForTimeSlots: string = ''; 
+  minDate: string;
+  maxDate: string; 
+  availableStartTimes: { value: string, display: string }[] = [];
+  readonly SLOT_DURATION_MINUTES = 45;
 
   get selectedClassroomName(): string | undefined {
     if (!this.selectedClassroomId || !this.allClassrooms) {
@@ -71,44 +71,58 @@ export class ClassroomAvailabilityPage implements OnInit, AfterViewInit, OnDestr
     private toastCtrl: ToastController,
     private navCtrl: NavController,
     private alertCtrl: AlertController,
-    private cdr: ChangeDetectorRef
-  ) {}
+    private cdr: ChangeDetectorRef,
+    public datePipe: DatePipe
+  ) {
+    const today = new Date();
+    this.minDate = formatDate(today, 'yyyy-MM-dd', 'en-US'); 
+    const oneYearFromNow = new Date();
+    oneYearFromNow.setFullYear(today.getFullYear() + 1);
+    this.maxDate = formatDate(oneYearFromNow, 'yyyy-MM-dd', 'en-US'); 
+  }
 
   ngOnInit() {
-    console.log("ClassroomAvailabilityPage: ngOnInit - INICIO");
     this.authService.currentUser.pipe(takeUntil(this.destroy$)).subscribe(user => {
       this.currentUser = user;
       this.userRole = user?.role || null;
-      console.log("ClassroomAvailabilityPage: Usuario y Rol actualizados:", this.currentUser, this.userRole);
     });
 
     this.loadInitialData();
-    console.log("ClassroomAvailabilityPage: ngOnInit - FIN");
   }
 
   async loadInitialData() {
-    console.log("ClassroomAvailabilityPage: loadInitialData - INICIO");
     this.isLoadingClassrooms = true;
     this.cdr.detectChanges();
 
     try {
       this.allClassrooms = await firstValueFrom(this.classroomService.getAllClassrooms().pipe(takeUntil(this.destroy$)));
-      console.log("ClassroomAvailabilityPage: Aulas cargadas para el selector:", this.allClassrooms);
 
       const params = await firstValueFrom(this.route.queryParams.pipe(take(1)));
       const classroomIdFromParams = params['classroomId'];
 
       if (classroomIdFromParams && this.allClassrooms.some(c => c.id === classroomIdFromParams)) {
         this.selectedClassroomId = classroomIdFromParams;
-        console.log("ClassroomAvailabilityPage: Aula preseleccionada desde queryParams:", this.selectedClassroomId);
       } else if (this.allClassrooms.length > 0) {
-        // No preseleccionar
+        
       } else {
-        console.warn("ClassroomAvailabilityPage: No hay aulas disponibles para seleccionar.");
         this.presentToast("No hay aulas disponibles para mostrar disponibilidad.", "warning");
       }
+
+     
+      const dateFromParams = this.route.snapshot.queryParamMap.get('date');
+      if (dateFromParams) {
+        this.selectedDateForTimeSlots = dateFromParams;
+      } else {
+        
+        this.selectedDateForTimeSlots = formatDate(new Date(), 'yyyy-MM-dd', 'en-US');
+      }
+
+    
+      if (this.selectedClassroomId && this.selectedDateForTimeSlots) {
+        this.loadAvailabilityData(this.selectedClassroomId, this.selectedDateForTimeSlots);
+      }
+
     } catch (error: any) {
-      console.error("ClassroomAvailabilityPage: Error cargando aulas para el selector:", error);
       this.presentToast('Error al cargar la lista de aulas: ' + (error?.message || 'Error desconocido'), 'danger');
     } finally {
       this.isLoadingClassrooms = false;
@@ -116,254 +130,176 @@ export class ClassroomAvailabilityPage implements OnInit, AfterViewInit, OnDestr
     }
   }
 
-  ngAfterViewInit() {
-    console.log("ClassroomAvailabilityPage: ngAfterViewInit - INICIO");
-    if (this.calendarEl && this.calendarEl.nativeElement) {
-      this.initializeCalendar();
-    } else {
-      console.warn("ClassroomAvailabilityPage: calendarEl no disponible inmediatamente en ngAfterViewInit, reintentando...");
-      setTimeout(() => {
-        if (this.calendarEl && this.calendarEl.nativeElement) {
-          this.initializeCalendar();
-        } else {
-          console.error("ClassroomAvailabilityPage: Fallo crítico al encontrar calendarEl después del reintento.");
-          this.presentToast("Error al inicializar el calendario.", "danger");
-          this.isLoadingCalendar = false;
-          this.cdr.detectChanges();
-        }
-      }, 100);
-    }
-    console.log("ClassroomAvailabilityPage: ngAfterViewInit - FIN");
-  }
-
-  initializeCalendar() {
-    console.log("ClassroomAvailabilityPage: initializeCalendar - INICIO. Aula seleccionada actual:", this.selectedClassroomId);
-    if (this.calendarApi) {
-      console.log("ClassroomAvailabilityPage: El calendario ya está inicializado. Destruyendo para reinicializar.");
-      this.calendarApi.destroy();
-      this.calendarApi = undefined;
-    }
-    
-    this.isLoadingCalendar = true;
-    this.cdr.detectChanges();
-
-    this.calendarOptions = {
-      plugins: [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin],
-      initialView: 'timeGridWeek',
-      headerToolbar: {
-        left: 'prev,next today',
-        center: 'title',
-        right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
-      },
-      locale: esLocale,
-      weekends: true,
-      editable: this.userRole === Rol.ADMIN || this.userRole === Rol.COORDINADOR,
-      selectable: this.userRole === Rol.ADMIN || this.userRole === Rol.COORDINADOR || this.userRole === Rol.PROFESOR,
-      selectMirror: true,
-      dayMaxEvents: true, 
-      events: this.getEventsFunction.bind(this),
-      eventClick: this.handleEventClick.bind(this),
-      select: this.handleDateSelect.bind(this),
-      loading: (isLoading) => console.log("FullCalendar loading state:", isLoading),
-      datesSet: (arg) => console.log("FullCalendar datesSet, view:", arg.view.type, "start:", arg.startStr, "end:", arg.endStr),
-      allDaySlot: false,
-      slotMinTime: "07:00:00",
-      slotMaxTime: "22:00:00",
-      height: 'auto',
-      contentHeight: 'auto',
-      nowIndicator: true,
-      businessHours: {
-        daysOfWeek: [ 1, 2, 3, 4, 5 ], 
-        startTime: '08:00',
-        endTime: '18:00',
-      }
-    };
-
-    if (this.calendarEl && this.calendarEl.nativeElement) {
-      this.calendarApi = new Calendar(this.calendarEl.nativeElement, this.calendarOptions);
-      this.calendarApi.render();
-      console.log("ClassroomAvailabilityPage: Calendario renderizado.");
-      this.isLoadingCalendar = false;
-      this.cdr.detectChanges();
-      
-      if (this.selectedClassroomId) {
-        console.log("ClassroomAvailabilityPage: Aula ya seleccionada después de inicializar calendario, llamando a refetchEvents.");
-        this.calendarApi.refetchEvents();
-      }
-    } else {
-      console.error("ClassroomAvailabilityPage: No se pudo inicializar el calendario, calendarEl.nativeElement es nulo en initializeCalendar.");
-      this.isLoadingCalendar = false;
-      this.cdr.detectChanges();
-    }
-  }
   
+
   async onClassroomChange(event: any) {
     const newClassroomId = event.detail.value;
-    console.log(`ClassroomAvailabilityPage: onClassroomChange - Nueva aula seleccionada: ${newClassroomId}`);
-    
     this.selectedClassroomId = newClassroomId;
-    this.currentReservations = []; 
+    this.existingReservationsForDay = []; 
+    this.availableStartTimes = [];
 
-    if (this.selectedClassroomId) {
-      if (this.calendarApi) {
-        console.log("ClassroomAvailabilityPage: onClassroomChange - Calendar API disponible, llamando a refetchEvents().");
-        this.calendarApi.refetchEvents();
-      } else {
-        console.warn('ClassroomAvailabilityPage: onClassroomChange - Calendar API no disponible. Intentando inicializar.');
-        if (this.calendarEl && this.calendarEl.nativeElement) {
-            this.initializeCalendar();
-        }
-      }
-      this.router.navigate([], {
+    if (this.selectedClassroomId && this.selectedDateForTimeSlots) {
+      await this.loadAvailabilityData(this.selectedClassroomId, this.selectedDateForTimeSlots);
+    } else {
+      this.router.navigate([], { 
         relativeTo: this.route,
         queryParams: { classroomId: this.selectedClassroomId },
         queryParamsHandling: 'merge',
       });
-    } else {
-      console.log("ClassroomAvailabilityPage: onClassroomChange - No hay aula seleccionada. Limpiando eventos del calendario.");
-      if (this.calendarApi) {
-        this.calendarApi.removeAllEvents();
-      }
     }
     this.cdr.detectChanges();
   }
 
-  getEventsFunction(fetchInfo: any, successCallback: (events: EventInput[]) => void, failureCallback: (error: any) => void): void {
-    console.log("ClassroomAvailabilityPage: getEventsFunction - Llamada. FetchInfo:", fetchInfo);
-    if (!this.selectedClassroomId) {
-      console.warn("ClassroomAvailabilityPage: getEventsFunction - No hay aula seleccionada, devolviendo array vacío.");
-      successCallback([]);
+  async onDateChange(event: any) {
+    const newDateISO = event.detail.value;
+    if (newDateISO) {
+      this.selectedDateForTimeSlots = formatDate(new Date(newDateISO), 'yyyy-MM-dd', 'en-US');
+      if (this.selectedClassroomId && this.selectedDateForTimeSlots) {
+        await this.loadAvailabilityData(this.selectedClassroomId, this.selectedDateForTimeSlots);
+      }
+      this.router.navigate([], {
+        relativeTo: this.route,
+        queryParams: { date: this.selectedDateForTimeSlots },
+        queryParamsHandling: 'merge',
+      });
+    }
+    this.cdr.detectChanges();
+  }
+
+  async loadAvailabilityData(classroomId: string, dateISO: string) {
+    this.isLoadingTimes = true;
+    this.existingReservationsForDay = [];
+    this.availableStartTimes = [];
+    this.cdr.detectChanges();
+
+    const dayStartUTC = `${dateISO}T00:00:00.000Z`;
+    const dayEndUTC = `${dateISO}T23:59:59.999Z`;
+
+    try {
+      const reservations = await firstValueFrom(
+        this.reservationService.getReservationsByClassroomAndDateRange(classroomId, dayStartUTC, dayEndUTC)
+          .pipe(takeUntil(this.destroy$))
+      );
+      this.existingReservationsForDay = reservations.filter(r => 
+        r.status === ReservationStatus.CONFIRMADA || r.status === ReservationStatus.PENDIENTE
+      );
+      this.generateAvailableTimeSlots();
+    } catch (err: any) {
+      this.presentToast('Error al cargar reservas para la fecha seleccionada: ' + (err.message || 'Error desconocido'), 'danger');
+      this.existingReservationsForDay = [];
+      this.availableStartTimes = [];
+    } finally {
+      this.isLoadingTimes = false;
+      this.cdr.detectChanges();
+    }
+  }
+
+  generateAvailableTimeSlots() {
+    this.availableStartTimes = [];
+    if (!this.selectedClassroomId || !this.selectedDateForTimeSlots) {
       return;
     }
 
-    const start = fetchInfo.startStr;
-    const end = fetchInfo.endStr;
-    console.log(`ClassroomAvailabilityPage: getEventsFunction - Cargando reservas para aula ${this.selectedClassroomId} desde ${start} hasta ${end}`);
+    const slots: { value: string, display: string }[] = [];
+    const openingHour = 7; 
+    let dayClosingHour = 22; 
+    const dateParts = this.selectedDateForTimeSlots.split('-').map(Number);
+    const localYear = dateParts[0];
+    const localMonth = dateParts[1] - 1; 
+    const localDay = dateParts[2];
     
-    this.reservationService.getReservationsByClassroomAndDateRange(this.selectedClassroomId, start, end) 
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (reservations: Reservation[]) => {
-          console.log(`ClassroomAvailabilityPage: getEventsFunction - Reservas recibidas para aula ${this.selectedClassroomId}:`, reservations);
-          this.currentReservations = reservations;
-          const newEvents = reservations.map(res => ({
-            id: res.id,
-            title: `${res.purpose || 'Reserva'} (${res.user?.name || 'N/A'})`,
-            start: res.startTime,
-            end: res.endTime,
-            backgroundColor: this.getEventColor(res.status),
-            borderColor: this.getEventColor(res.status),
-            classNames: res.status === ReservationStatus.PENDIENTE ? ['event-pending'] : [],
-            extendedProps: {
-              status: res.status,
-              userId: res.user?.id,
-              userName: res.user?.name,
-              userEmail: res.user?.email,
-              classroomName: this.allClassrooms.find(c => c.id === res.classroom?.id)?.name || res.classroom?.name || 'N/A',
-              purpose: res.purpose
-            }
-          }));
-          console.log("ClassroomAvailabilityPage: getEventsFunction - Eventos procesados para calendario:", newEvents);
-          successCallback(newEvents);
-        },
-        error: (err: Error | HttpErrorResponse) => {
-          console.error(`ClassroomAvailabilityPage: getEventsFunction - Error cargando reservas para aula ${this.selectedClassroomId}:`, err);
-          this.presentToast('Error al cargar las reservas: ' + (err.message || 'Error desconocido'), 'danger');
-          failureCallback(err);
-        }
-      });
-  }
-
-  async handleEventClick(clickInfo: EventClickArg) {
-    console.log("ClassroomAvailabilityPage: handleEventClick - Evento clickeado:", clickInfo.event);
-    const event = clickInfo.event;
-    const props = event.extendedProps;
-    const startTime = event.start ? formatDate(event.start, 'medium', 'es-CO', 'America/Bogota') : 'N/A';
-    const endTime = event.end ? formatDate(event.end, 'medium', 'es-CO', 'America/Bogota') : 'N/A';
-
-    let message = `
-      <strong>Motivo:</strong> ${props['purpose'] || event.title || 'No especificado'}<br>
-      <strong>Inicio:</strong> ${startTime}<br>
-      <strong>Fin:</strong> ${endTime}<br>
-      <strong>Aula:</strong> ${props['classroomName'] || 'N/A'}<br>
-      <strong>Estado:</strong> ${props['status'] ? (props['status'] as string).charAt(0).toUpperCase() + (props['status'] as string).slice(1).toLowerCase() : 'N/A'}<br> 
-      <strong>Reservado por:</strong> ${props['userName'] || 'N/A'} (${props['userEmail'] || 'N/A'})
-    `;
-
-    const alertButtons: any[] = [ { text: 'Cerrar', role: 'cancel' } ];
-    const canModify = this.userRole === Rol.ADMIN || this.userRole === Rol.COORDINADOR || (this.currentUser && this.currentUser.id === props['userId']);
     
-    if (canModify && event.id) {
-      const reservationId = event.id;
-      if (props['status'] !== ReservationStatus.CANCELADA && props['status'] !== ReservationStatus.RECHAZADA) {
-        alertButtons.unshift({
-          text: 'Cancelar Reserva',
-          cssClass: 'alert-button-danger',
-          handler: () => this.confirmCancelReservation(reservationId, props['purpose'] || event.title || 'esta reserva')
-        });
-      }
+    const selectedDateObjectForDayCheck = new Date(localYear, localMonth, localDay);
+    const dayOfWeek = selectedDateObjectForDayCheck.getDay(); 
+
+    if (dayOfWeek === 0) { 
+        this.availableStartTimes = []; 
+        this.presentToast("Los domingos no son días hábiles para reservas.", "warning");
+        return; 
+    } else if (dayOfWeek === 6) { 
+        dayClosingHour = 12; 
     }
-    
-    const alert = await this.alertCtrl.create({
-      header: 'Detalles de la Reserva',
-      message: message,
-      buttons: alertButtons,
-      cssClass: 'custom-alert-message'
-    });
-    await alert.present();
-  }
-  
-  async confirmCancelReservation(reservationId: string, eventName: string) {
-    const alert = await this.alertCtrl.create({
-      header: 'Confirmar Cancelación',
-      message: `¿Estás seguro de que quieres cancelar la reserva para "${eventName}"? Esta acción no se puede deshacer.`,
-      buttons: [
-        { text: 'No', role: 'cancel' },
-        {
-          text: 'Sí, Cancelar',
-          cssClass: 'alert-button-danger',
-          handler: async () => {
-            const loading = await this.loadingCtrl.create({ message: 'Cancelando reserva...' });
-            await loading.present();
-            this.reservationService.cancelMyReservation(reservationId).pipe( 
-              takeUntil(this.destroy$),
-              finalize(() => loading.dismiss()) 
-            ).subscribe({
-              next: () => {
-                this.presentToast('Reserva cancelada exitosamente.', 'success');
-                if (this.calendarApi) this.calendarApi.refetchEvents();
-              },
-              error: (err: Error | HttpErrorResponse | any) => this.presentToast('Error al cancelar la reserva: ' + (err.message || 'Error desconocido'), 'danger')
-            });
+
+    const now = new Date();
+    const todayLocalMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const selectedDateLocalMidnight = new Date(localYear, localMonth, localDay);
+    const isSelectedDateToday = selectedDateLocalMidnight.getTime() === todayLocalMidnight.getTime();
+
+    for (let hour = openingHour; hour < dayClosingHour; hour++) {
+      for (let minute = 0; minute < 60; minute += this.SLOT_DURATION_MINUTES) {
+        const slotStartLocalTime = new Date(localYear, localMonth, localDay, hour, minute);
+        
+       
+        if (isSelectedDateToday && slotStartLocalTime.getTime() < now.getTime()) {
+          continue;
+        }
+
+        const potentialSlotEndLocalTime = new Date(slotStartLocalTime.getTime() + this.SLOT_DURATION_MINUTES * 60 * 1000);
+        
+        
+        if (potentialSlotEndLocalTime.getFullYear() > localYear ||
+            potentialSlotEndLocalTime.getMonth() > localMonth ||
+            potentialSlotEndLocalTime.getDate() > localDay ||
+            (potentialSlotEndLocalTime.getHours() > dayClosingHour) ||
+            (potentialSlotEndLocalTime.getHours() === dayClosingHour && potentialSlotEndLocalTime.getMinutes() > 0 && dayOfWeek !== 6)) { // Ajuste para el sábado
+          continue;
+        }
+        
+        if (dayOfWeek === 6 && potentialSlotEndLocalTime.getHours() >= 12 && potentialSlotEndLocalTime.getMinutes() > 0) {
+            continue; 
+        }
+
+
+        let isThisIndividualSlotAvailable = true;
+        if (this.existingReservationsForDay) {
+          for (const res of this.existingReservationsForDay) {
+            const resStartTime = new Date(res.startTime).getTime();
+            const resEndTime = new Date(res.endTime).getTime();
+            const slotStartTimeForComparison = slotStartLocalTime.getTime();
+            const slotEndTimeForComparison = potentialSlotEndLocalTime.getTime();
+            
+            
+            if (slotStartTimeForComparison < resEndTime && slotEndTimeForComparison > resStartTime) {
+              isThisIndividualSlotAvailable = false;
+              break;
+            }
           }
         }
-      ]
-    });
-    await alert.present();
+        if (isThisIndividualSlotAvailable) {
+          slots.push({
+            value: slotStartLocalTime.toISOString(), 
+            display: this.datePipe.transform(slotStartLocalTime, 'h:mm a', 'America/Bogota') || '' // Formato de hora am/pm
+          });
+        }
+      }
+    }
+    this.availableStartTimes = slots;
+    this.cdr.detectChanges();
   }
 
-  async handleDateSelect(selectInfo: DateSelectArg) {
-    console.log("ClassroomAvailabilityPage: handleDateSelect - Rango seleccionado:", selectInfo);
+  async handleSlotSelect(startTimeISO: string) {
     if (!this.selectedClassroomId) {
       this.presentToast("Por favor, selecciona un aula primero.", "warning");
-      selectInfo.view.calendar.unselect();
       return;
     }
-    if (this.userRole !== Rol.ADMIN && this.userRole !== Rol.COORDINADOR && this.userRole !== Rol.PROFESOR) {
+    if (this.userRole !== Rol.ADMIN && this.userRole !== Rol.COORDINADOR && this.userRole !== Rol.PROFESOR && this.userRole !== Rol.ESTUDIANTE && this.userRole !== Rol.TUTOR) {
       this.presentToast("No tienes permisos para crear reservas.", "warning");
-      selectInfo.view.calendar.unselect();
       return;
     }
+
+    const selectedStartTime = new Date(startTimeISO);
+    const endTime = new Date(selectedStartTime.getTime() + this.SLOT_DURATION_MINUTES * 60 * 1000); // Asume 1 bloque
 
     this.router.navigate(['/app/reservations/new'], {
       queryParams: {
         classroomId: this.selectedClassroomId,
-        startTime: selectInfo.startStr,
-        endTime: selectInfo.endStr,
-        allDay: selectInfo.allDay.toString()
+        startTime: selectedStartTime.toISOString(),
+        endTime: endTime.toISOString(),
+        allDay: 'false' 
       }
     });
   }
+
 
   getEventColor(status: ReservationStatus | undefined): string {
     switch (status) {
@@ -375,20 +311,13 @@ export class ClassroomAvailabilityPage implements OnInit, AfterViewInit, OnDestr
     }
   }
 
-  async presentToast(message: string, color: 'success' | 'danger' | 'warning' | 'medium') {
-    const toast = await this.toastCtrl.create({ message, duration: 3500, color, position: 'top', buttons: [{ text: 'OK', role: 'cancel'}] });
+  async presentToast(message: string, color: 'success' | 'danger' | 'warning' | 'medium', duration: number = 3500) {
+    const toast = await this.toastCtrl.create({ message, duration, color, position: 'top', buttons: [{ text: 'OK', role: 'cancel'}] });
     toast.present();
   }
 
   ngOnDestroy() {
-    console.log("ClassroomAvailabilityPage: ngOnDestroy - INICIO");
     this.destroy$.next();
     this.destroy$.complete();
-    if (this.calendarApi) {
-      this.calendarApi.destroy();
-      console.log("ClassroomAvailabilityPage: Calendario destruido.");
-      this.calendarApi = undefined;
-    }
-    console.log("ClassroomAvailabilityPage: ngOnDestroy - FIN");
   }
 }

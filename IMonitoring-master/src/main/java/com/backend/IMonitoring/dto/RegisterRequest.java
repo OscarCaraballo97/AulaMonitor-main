@@ -26,7 +26,7 @@ public class RegisterRequest {
 
     @NotBlank(message = "La contraseña no puede estar vacía")
     @Size(min = 6, message = "La contraseña debe tener al menos 6 caracteres")
-    private String password;
+    private String password_hash;
 
     @NotNull(message = "El rol es obligatorio")
     private Rol role;

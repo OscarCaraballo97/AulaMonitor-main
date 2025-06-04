@@ -38,7 +38,6 @@ public class ReservationController {
 
 
     @GetMapping("/filter")
-    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR')") 
     public ResponseEntity<List<ReservationResponseDTO>> getAdminFilteredReservations(
             @RequestParam(required = false) String classroomId,
             @RequestParam(required = false) String userId,
@@ -77,7 +76,7 @@ public class ReservationController {
                 futureOnly != null && futureOnly, 
                 startDate, endDate
         );
-       
+        
         return ResponseEntity.ok(reservationDTOs);
     }
 
@@ -110,7 +109,7 @@ public class ReservationController {
         }
         
         if (reservationRequestDTO.getStatus() != null) { 
-             reservation.setStatus(reservationRequestDTO.getStatus());
+            reservation.setStatus(reservationRequestDTO.getStatus());
         }
 
         reservation.setStartTime(reservationRequestDTO.getStartTime());

@@ -11,8 +11,11 @@ import { environment } from './environments/environment';
 import { jwtInterceptorFn } from './app/interceptor/jwt.interceptor';
 
 import { registerLocaleData } from '@angular/common';
-import localeEs from '@angular/common/locales/es';
+import localeEs from '@angular/common/locales/es'; 
+import localeEsCo from '@angular/common/locales/es-CO'; 
+
 registerLocaleData(localeEs, 'es');
+registerLocaleData(localeEsCo, 'es-CO');
 
 if (environment.production) {
   enableProdMode();
@@ -25,5 +28,6 @@ bootstrapApplication(AppComponent, {
     importProvidersFrom(IonicStorageModule.forRoot()),
     provideRouter(routes, withPreloading(PreloadAllModules), withComponentInputBinding()),
     provideHttpClient(withInterceptors([jwtInterceptorFn])),
+    { provide: LOCALE_ID, useValue: 'es-CO' }
   ],
 });

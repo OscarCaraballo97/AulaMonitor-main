@@ -34,21 +34,21 @@
 
       <ion-item lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
         <ion-label position="floating" class="text-gray-700 dark:text-gray-300">Contraseña</ion-label>
-        <ion-input type="password" formControlName="password" required class="text-gray-900 dark:text-kwd-light"></ion-input>
+        <ion-input type="password" formControlName="password_hash" required class="text-gray-900 dark:text-kwd-light"></ion-input>
       </ion-item>
-      <div *ngIf="registerForm.get('password')?.invalid && registerForm.get('password')?.touched" class="mt-1 text-xs text-red-600 dark:text-kwd-red">
-        <small *ngIf="registerForm.get('password')?.errors?.['required']">Contraseña es requerida.</small>
-        <small *ngIf="registerForm.get('password')?.errors?.['minlength']">Mínimo 6 caracteres.</small>
+      <div *ngIf="registerForm.get('password_hash')?.invalid && registerForm.get('password_hash')?.touched" class="mt-1 text-xs text-red-600 dark:text-kwd-red">
+        <small *ngIf="registerForm.get('password_hash')?.errors?.['required']">Contraseña es requerida.</small>
+        <small *ngIf="registerForm.get('password_hash')?.errors?.['minlength']">Mínimo 6 caracteres.</small>
       </div>
 
       <ion-item lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
         <ion-label position="floating" class="text-gray-700 dark:text-gray-300">Confirmar Contraseña</ion-label>
-        <ion-input type="password" formControlName="confirmPassword" required class="text-gray-900 dark:text-kwd-light"></ion-input>
+        <ion-input type="password" formControlName="confirmPassword_hash" required class="text-gray-900 dark:text-kwd-light"></ion-input>
       </ion-item>
-      <div *ngIf="registerForm.get('confirmPassword')?.invalid && registerForm.get('confirmPassword')?.touched" class="mt-1 text-xs text-red-600 dark:text-kwd-red">
-        <small *ngIf="registerForm.get('confirmPassword')?.errors?.['required']">Confirmación de contraseña es requerida.</small>
+      <div *ngIf="registerForm.get('confirmPassword_hash')?.invalid && registerForm.get('confirmPassword_hash')?.touched" class="mt-1 text-xs text-red-600 dark:text-kwd-red">
+        <small *ngIf="registerForm.get('confirmPassword_hash')?.errors?.['required']">Confirmación de contraseña es requerida.</small>
       </div>
-      <div *ngIf="registerForm.errors?.['passwordMismatch'] && (registerForm.get('confirmPassword')?.touched || registerForm.get('password')?.touched)" class="mt-1 text-xs text-red-600 dark:text-kwd-red">
+      <div *ngIf="registerForm.errors?.['passwordMismatchGlobal'] && (registerForm.get('confirmPassword_hash')?.touched || registerForm.get('password_hash')?.touched)" class="mt-1 text-xs text-red-600 dark:text-kwd-red">
         <small>Las contraseñas no coinciden.</small>
       </div>
       

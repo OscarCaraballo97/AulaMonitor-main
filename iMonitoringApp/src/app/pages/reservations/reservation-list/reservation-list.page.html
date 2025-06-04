@@ -107,50 +107,42 @@
       </div>
       <div *ngIf="!isLoadingMyReservations && filteredMyReservations.length === 0 && myReservations.length > 0 && searchTermMyReservations && !errorMessage" class="text-center py-10 text-gray-500 dark:text-gray-400">
         <ion-icon name="search-outline" class="text-5xl mb-2 opacity-70"></ion-icon>
-        <p class="text-lg">No se encontraron reservas con "{{ searchTermMyReservations }}"{{currentFilterStatusMessage}}.</p>
+        <p class="text-lg">No se encontraron reservas con "{{ searchTermMyReservations }}"</p>
       </div>
-      <div *ngIf="!isLoadingMyReservations && myReservations.length === 0 && !errorMessage" class="text-center py-10 text-gray-500 dark:text-gray-400">
-        <ion-icon name="folder-open-outline" class="text-5xl mb-2 opacity-70"></ion-icon>
-        <p class="text-lg">No tienes ninguna reserva registrada{{ currentFilterStatusMessage }}.</p> 
-        <ion-button (click)="navigateToAddReservation()" fill="outline" class="mt-4 rounded-lg">Crear una Reserva</ion-button>
+      <div *ngIf="!isLoadingMyReservations && filteredMyReservations.length === 0 && !errorMessage && !searchTermMyReservations" class="text-center py-10 text-gray-500 bg-white rounded-lg shadow-md dark:bg-kwd-darker dark:text-gray-400 mt-6">
+        <ion-icon name="bookmark-outline" class="text-5xl mb-2 opacity-70"></ion-icon>
+        <p class="text-lg">No tienes reservas registradas{{currentFilterStatusMessage}}.</p>
+        <ion-button (click)="navigateToAddReservation()" class="mt-4 text-kwd-blue-DEFAULT dark:text-kwd-blue-400 hover:underline">
+          <ion-icon name="add-circle-outline" slot="start"></ion-icon> Crear una ahora
+        </ion-button>
       </div>
-       <div *ngIf="errorMessage && !isLoadingMyReservations && (myReservations.length === 0 || filteredMyReservations.length === 0)" class="text-center py-10 text-red-500 dark:text-kwd-red">
-        <ion-icon name="alert-circle-outline" class="text-5xl mb-2"></ion-icon>
-        <p class="text-lg">{{errorMessage}}</p>
+      <div *ngIf="!isLoadingMyReservations && errorMessage && filteredMyReservations.length === 0 && !searchTermMyReservations" class="text-center py-10 text-red-500 dark:text-kwd-red">
+          <ion-icon name="alert-circle-outline" class="text-5xl mb-2"></ion-icon>
+          <p class="text-lg">{{errorMessage}}</p>
       </div>
-
       <ion-list *ngIf="!isLoadingMyReservations && filteredMyReservations.length > 0" lines="none" class="space-y-3">
         <ion-card *ngFor="let res of filteredMyReservations" class="dark:bg-kwd-darker shadow-lg rounded-xl overflow-hidden transition-shadow hover:shadow-xl">
           <ion-item lines="none" class="dark:bg-kwd-darker p-3 cursor-pointer" (click)="viewReservationDetails(res)" detail="false">
             <ion-icon [name]="res.classroom?.type === ReservationClassroomTypeEnum.LABORATORIO ? 'flask-outline' : (res.classroom?.type === ReservationClassroomTypeEnum.AUDITORIO ? 'megaphone-outline' : 'easel-outline')" slot="start" class="text-3xl opacity-80" [style.color]="getEventColor(res.status)"></ion-icon>
             <ion-label class="dark:text-gray-200">
               <h2 class="font-bold text-md">{{ res.purpose || 'Reserva sin motivo' }}</h2>
+              <p class="text-xs text-gray-500 dark:text-gray-400"><ion-icon name="business-outline" class="mr-1 align-middle"></ion-icon> {{ res.classroom?.name }} ({{ res.classroom?.buildingName || 'N/A' }})</p>
+              <p class="text-xs text-gray-500 dark:text-gray-400"><ion-icon name="person-outline" class="mr-1 align-middle"></ion-icon> {{ res.user?.name || 'N/A' }}</p>
               <p class="text-xs text-gray-500 dark:text-gray-400">
-                <ion-icon name="business-outline" class="mr-1 align-middle"></ion-icon> {{ res.classroom?.name }} ({{res.classroom?.buildingName || 'N/A'}})
+                  <ion-icon name="calendar-outline" class="mr-1 align-middle"></ion-icon> 
+                  {{ res.startTime | date:'dd/MM/yy, HH:mm':'UTC':'es-CO' }} - {{ res.endTime | date:'HH:mm':'UTC':'es-CO' }}
               </p>
-              <p class="text-xs text-gray-500 dark:text-gray-400">
-                <ion-icon name="person-outline" class="mr-1 align-middle"></ion-icon> 
-                Para: {{ res.user?.id === currentUser?.id ? 'Mí' : (res.user?.name || 'N/A') }}
-                <span *ngIf="currentUser && res.user?.id !== currentUser.id && (userRole === RolEnum.ADMIN || userRole === RolEnum.COORDINADOR)">
-                     (Creada por: {{ currentUser.name }}) 
-                </span>
-              </p>
-              <p class="text-xs text-gray-500 dark:text-gray-400">
-                <ion-icon name="calendar-outline" class="mr-1 align-middle"></ion-icon> 
-                {{ res.startTime | date:'dd/MM/yy, HH:mm':'UTC':'es-CO' }} - {{ res.endTime | date:'HH:mm':'UTC':'es-CO' }}
-              </p>
-              <p class="text-xs mt-1">
-                <ion-icon name="hourglass-outline" class="mr-1 align-middle"></ion-icon> 
-                <span class="font-semibold py-0.5 px-1.5 rounded-md text-white text-[0.65rem]" [style.backgroundColor]="getEventColor(res.status)">{{ res.status | titlecase }}</span>
-              </p>
+              <p class="text-xs mt-1"><ion-icon name="hourglass-outline" class="mr-1 align-middle"></ion-icon> <span class="font-semibold py-0.5 px-1.5 rounded-md text-white text-[0.65rem]" [style.backgroundColor]="getEventColor(res.status)">{{ res.status | titlecase }}</span></p>
             </ion-label>
+            <ion-buttons slot="end" class="self-start">
+              <ion-button *ngIf="canEditReservation(res)" (click)="navigateToEditReservation(res.id); $event.stopPropagation()" fill="clear" color="primary" size="small" class="rounded-md">
+                <ion-icon slot="icon-only" name="create-outline"></ion-icon>
+              </ion-button>
+              <ion-button *ngIf="canCancelReservation(res)" (click)="confirmAction(res, 'cancel'); $event.stopPropagation()" fill="clear" color="danger" size="small" class="rounded-md">
+                <ion-icon slot="icon-only" name="trash-outline"></ion-icon>
+              </ion-button>
+            </ion-buttons>
           </ion-item>
-          <ion-footer class="bg-gray-50 dark:bg-kwd-dark-tint p-2 border-t dark:border-kwd-dark" *ngIf="canEditReservation(res) || canCancelReservation(res)">
-            <div class="flex justify-end space-x-2">
-              <ion-button *ngIf="canEditReservation(res)" fill="outline" size="small" (click)="navigateToEditReservation(res.id); $event.stopPropagation()" color="secondary" class="rounded-md text-xs dark:text-kwd-secondary dark:border-kwd-secondary">Editar</ion-button>
-              <ion-button *ngIf="canCancelReservation(res)" fill="solid" size="small" (click)="confirmAction(res, 'cancel'); $event.stopPropagation()" color="danger" class="rounded-md text-xs">Cancelar</ion-button>
-            </div>
-          </ion-footer>
         </ion-card>
       </ion-list>
     </div>

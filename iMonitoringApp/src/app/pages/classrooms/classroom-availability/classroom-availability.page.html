@@ -41,32 +41,81 @@
             No hay aulas disponibles para mostrar.
           </div>
         </ion-item>
+
+        <ion-item *ngIf="selectedClassroomId" lines="none" class="dark:bg-kwd-dark mt-4">
+          <ion-label position="stacked" class="text-gray-700 dark:text-gray-300">Seleccionar Fecha:</ion-label>
+          <ion-datetime-button datetime="datePicker" class="w-full"></ion-datetime-button>
+          <ion-modal [keepContentsMounted]="true">
+            <ng-template>
+              <ion-datetime
+                id="datePicker"
+                presentation="date"
+                [value]="selectedDateForTimeSlots"
+                (ionChange)="onDateChange($event)"
+                locale="es-CO"
+                [firstDayOfWeek]="1"
+                [min]="minDate"
+                [max]="maxDate"
+              >
+              </ion-datetime>
+            </ng-template>
+          </ion-modal>
+        </ion-item>
+        <div *ngIf="selectedClassroomId && !selectedDateForTimeSlots" class="text-xs text-red-600 dark:text-kwd-red mt-1 px-4">
+            <small>Por favor, selecciona una fecha.</small>
+        </div>
       </div>
 
       <div class="bg-white p-2 md:p-4 rounded-lg shadow-md dark:bg-kwd-darker">
-        <div *ngIf="isLoadingCalendar && selectedClassroomId" class="text-center py-20">
-          <ion-spinner name="crescent" color="primary"></ion-spinner>
-          <p class="mt-4 text-gray-500 dark:text-gray-400">Cargando calendario y reservas...</p>
-        </div>
-        
-        <div #calendarEl [hidden]="(isLoadingCalendar && selectedClassroomId) || !selectedClassroomId"></div>
-
         <div *ngIf="!selectedClassroomId && !isLoadingClassrooms && allClassrooms.length > 0" class="text-center py-10 text-gray-600 dark:text-gray-400">
           <p>Por favor, selecciona un aula para ver su disponibilidad.</p>
         </div>
+        
+        <div *ngIf="selectedClassroomId && !selectedDateForTimeSlots && allClassrooms.length > 0" class="text-center py-10 text-gray-600 dark:text-gray-400">
+          <p>Por favor, selecciona una fecha para ver los horarios disponibles.</p>
+        </div>
+
+        <div *ngIf="isLoadingTimes" class="text-center py-10">
+          <ion-spinner name="crescent" color="primary"></ion-spinner>
+          <p class="mt-4 text-gray-500 dark:text-gray-400">Cargando horarios disponibles...</p>
+        </div>
+
+        <div *ngIf="!isLoadingTimes && selectedClassroomId && selectedDateForTimeSlots">
+          <h3 class="text-lg font-semibold mb-3 text-gray-800 dark:text-kwd-light">
+            Horarios Disponibles para {{ selectedClassroomName }} el {{ selectedDateForTimeSlots | date:'fullDate':'UTC':'es-CO' }}
+          </h3>
+          <ion-list *ngIf="availableStartTimes.length > 0" lines="inset" class="dark:bg-kwd-darker rounded-lg">
+            <ion-item *ngFor="let slot of availableStartTimes" button (click)="handleSlotSelect(slot.value)" detail="false" class="dark:bg-kwd-darker dark:text-kwd-light">
+              <ion-icon name="time-outline" slot="start"></ion-icon>
+              <ion-label>
+                <h2>{{ slot.display }}</h2>
+              </ion-label>
+            </ion-item>
+          </ion-list>
+          <div *ngIf="availableStartTimes.length === 0 && existingReservationsForDay.length > 0" class="text-center py-10 text-gray-500 dark:text-gray-400">
+            <ion-icon name="information-circle-outline" class="text-5xl mb-2 opacity-70"></ion-icon>
+            <p>No hay horarios disponibles para esta aula en la fecha seleccionada.</p>
+            <p class="text-sm">Todo el día está reservado o los horarios ya pasaron.</p>
+          </div>
+           <div *ngIf="availableStartTimes.length === 0 && existingReservationsForDay.length === 0" class="text-center py-10 text-gray-500 dark:text-gray-400">
+            <ion-icon name="information-circle-outline" class="text-5xl mb-2 opacity-70"></ion-icon>
+            <p>No hay horarios disponibles para esta aula en la fecha seleccionada.</p>
+            <p class="text-sm">Puede que ya no queden bloques disponibles o que el día no sea hábil.</p>
+          </div>
+        </div>
       </div>
       
-      <div *ngIf="selectedClassroomId && currentReservations.length > 0 && !isLoadingCalendar" class="mt-8 p-4 bg-white rounded-lg shadow-md dark:bg-kwd-darker">
+      <div *ngIf="selectedClassroomId && existingReservationsForDay.length > 0 && !isLoadingTimes" class="mt-8 p-4 bg-white rounded-lg shadow-md dark:bg-kwd-darker">
         <h3 class="text-lg font-semibold mb-3 text-gray-800 dark:text-kwd-light">
-          Reservas para {{ selectedClassroomName }} (Vista Actual del Calendario)
+          Reservas Existentes ({{ selectedDateForTimeSlots | date:'fullDate':'UTC':'es-CO' }})
         </h3>
         <ion-list lines="inset" class="dark:bg-kwd-darker rounded-lg">
-          <ion-item *ngFor="let res of currentReservations" class="dark:bg-kwd-dark dark:text-gray-300 mb-2 rounded-md shadow-sm">
+          <ion-item *ngFor="let res of existingReservationsForDay" class="dark:bg-kwd-dark dark:text-gray-300 mb-2 rounded-md shadow-sm">
             <ion-label>
               <h2 class="font-semibold text-base">{{ res.purpose || 'Reserva' }}</h2>
               <p class="text-sm"><strong>Usuario:</strong> {{ res.user?.name || 'N/A' }}</p>
-              <p class="text-sm"><strong>Desde:</strong> {{ res.startTime | date:'MMM d, y, h:mm a':'GMT-5':'es-CO' }}</p>
-              <p class="text-sm"><strong>Hasta:</strong> {{ res.endTime | date:'MMM d, y, h:mm a':'GMT-5':'es-CO' }}</p>
+              <p class="text-sm"><strong>Desde:</strong> {{ res.startTime | date:'h:mm a':'UTC':'es-CO' }}</p>
+              <p class="text-sm"><strong>Hasta:</strong> {{ res.endTime | date:'h:mm a':'UTC':'es-CO' }}</p>
               <p class="text-sm">
                 <strong>Estado:</strong> 
                 <span [style.color]="getEventColor(res.status)" class="font-medium">
@@ -74,11 +123,11 @@
                 </span>
               </p>
             </ion-label>
-            </ion-item>
+          </ion-item>
         </ion-list>
       </div>
-      <div *ngIf="selectedClassroomId && currentReservations.length === 0 && !isLoadingCalendar && !isLoadingClassrooms" class="mt-8 p-4 text-center text-gray-500 dark:text-gray-400">
-          <p>No hay reservas para el aula seleccionada en el rango de fechas visible.</p>
+       <div *ngIf="selectedClassroomId && existingReservationsForDay.length === 0 && !isLoadingTimes && selectedDateForTimeSlots" class="mt-8 p-4 text-center text-gray-500 dark:text-gray-400">
+          <p>No hay reservas activas para el aula seleccionada en esta fecha.</p>
         </div>
 
     </div>

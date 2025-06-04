@@ -6,10 +6,10 @@ import { FormsModule } from '@angular/forms';
 import { Observable, Subject } from 'rxjs';
 import { takeUntil, finalize } from 'rxjs/operators';
 
-import { Reservation, ReservationStatus, ReservationUserDetails, ReservationClassroomDetails } from '../../../models/reservation.model'; // Asegúrate de importar ReservationUserDetails y ReservationClassroomDetails
+import { Reservation, ReservationStatus, ReservationUserDetails, ReservationClassroomDetails } from '../../../models/reservation.model';
 import { User } from '../../../models/user.model';
 import { Rol } from '../../../models/rol.model';
-import { ReservationService, ReservationListFilters } from '../../../services/reservation.service'; // Usa ReservationListFilters
+import { ReservationService, ReservationListFilters } from '../../../services/reservation.service';
 import { AuthService } from '../../../services/auth.service';
 import { HttpErrorResponse } from '@angular/common/http';
 import { ClassroomType as ReservationClassroomTypeEnum } from '../../../models/classroom-type.enum';
@@ -52,6 +52,7 @@ export class ReservationListPage implements OnInit, OnDestroy {
   public RolEnum = Rol;
   public ReservationClassroomTypeEnum = ReservationClassroomTypeEnum;
   errorMessage: string | null = null;
+handleRefresh: any;
 
   constructor(
     private reservationService: ReservationService,
@@ -266,12 +267,16 @@ export class ReservationListPage implements OnInit, OnDestroy {
     this.navCtrl.navigateForward('/app/reservations/new');
   }
 
+  navigateToEditReservation(id: string) {
+    this.navCtrl.navigateForward(`/app/reservations/edit/${id}`);
+  }
+
   canEditReservation(reservation: Reservation): boolean {
     if (!this.currentUser || !reservation.user?.id) return false;
     if (this.userRole === Rol.ADMIN) return true; 
     if (this.userRole === Rol.COORDINADOR && 
         (reservation.user.id === this.currentUser.id || reservation.user?.role === Rol.ESTUDIANTE) && 
-        reservation.status === ReservationStatus.PENDIENTE) {
+        (reservation.status === ReservationStatus.PENDIENTE || reservation.status === ReservationStatus.CONFIRMADA)) {
       return true;
     }
     return reservation.user.id === this.currentUser.id && reservation.status === ReservationStatus.PENDIENTE;
@@ -315,7 +320,7 @@ export class ReservationListPage implements OnInit, OnDestroy {
 
     const alert = await this.alertCtrl.create({
       header: alertHeader,
-      message: `¿Estás seguro de que quieres ${actionText} la reserva para "${reservation.purpose || 'el aula ' + (reservation.classroom?.name || reservation.classroom?.id)}"?`, // Usa classroom.id como fallback
+      message: `¿Estás seguro de que quieres ${actionText} la reserva para "${reservation.purpose || 'el aula ' + (reservation.classroom?.name || reservation.classroom?.id)}"?`, 
       buttons: [
         { text: 'No', role: 'cancel' },
         {
@@ -355,86 +360,62 @@ export class ReservationListPage implements OnInit, OnDestroy {
                 }
               });
           }
-        }
-      ]
+        },
+      ],
+      cssClass: 'kwd-alert',
     });
     await alert.present();
   }
-  
-  navigateToEditReservation(reservationId?: string) {
-    if (!reservationId) return;
-    this.navCtrl.navigateForward(`/app/reservations/edit/${reservationId}`);
-  }
-  
+
   async viewReservationDetails(reservation: Reservation) {
     if (!reservation || !reservation.id) {
-      console.error("viewReservationDetails: Reserva o ID de reserva no válido.");
       this.presentToast('No se pueden mostrar los detalles: reserva no válida.', 'warning');
       return;
     }
-    console.log('Datos de la reserva para ver detalles:', JSON.stringify(reservation, null, 2));
+    const startTime = reservation.startTime ? formatDate(new Date(reservation.startTime.endsWith('Z') ? reservation.startTime : reservation.startTime + 'Z'), 'dd/MM/yyyy, HH:mm', 'es-CO', 'America/Bogota') : 'N/A';
+    const endTime = reservation.endTime ? formatDate(new Date(reservation.endTime.endsWith('Z') ? reservation.endTime : reservation.endTime + 'Z'), 'HH:mm', 'es-CO', 'America/Bogota') : 'N/A'; 
+    const statusDisplay = reservation.status ? (reservation.status as string).charAt(0).toUpperCase() + (reservation.status as string).slice(1).toLowerCase().replace('_', ' ') : 'N/A';
+    
+    const message = `Motivo: ${reservation.purpose || 'No especificado'}\n` +
+                   `Aula: ${reservation.classroom?.name || 'N/A'} (${reservation.classroom?.buildingName || 'N/A'})\n` +
+                   `Inicio: ${startTime}\n` +
+                   `Fin: ${endTime}\n` +
+                   `Estado: ${statusDisplay}\n` +
+                   `Reservado por: ${reservation.user?.name || 'N/A'} (${reservation.user?.email || 'N/A'})\n` +
+                   `ID Reserva: ${reservation.id}`;
 
-    const startTime = reservation.startTime 
-        ? formatDate(new Date(reservation.startTime), 'dd/MM/yyyy, HH:mm', 'es-CO', 'America/Bogota') 
-        : 'N/A';
-    const endTime = reservation.endTime 
-        ? formatDate(new Date(reservation.endTime), 'HH:mm', 'es-CO', 'America/Bogota') 
-        : 'N/A'; 
-
-    const statusDisplay = reservation.status 
-        ? (reservation.status as string).charAt(0).toUpperCase() + (reservation.status as string).slice(1).toLowerCase() 
-        : 'N/A';
-
-    const message = `
-      <p><strong>Motivo:</strong> ${reservation.purpose || 'No especificado'}</p>
-      <p><strong>Aula:</strong> ${reservation.classroom?.name || 'N/A'} (${reservation.classroom?.buildingName || 'N/A'})</p> <p><strong>Inicio:</strong> ${startTime}</p>
-      <p><strong>Fin:</strong> ${endTime}</p>
-      <p><strong>Estado:</strong> <span style="color:${this.getEventColor(reservation.status)}; font-weight:bold;">${statusDisplay}</span></p>
-      <p><strong>Reservado por:</strong> ${reservation.user?.name || 'N/A'} (${reservation.user?.email || 'N/A'})</p>
-      <p><small>ID Reserva: ${reservation.id}</small></p>
-    `;
-
-    const alert = await this.alertCtrl.create({
-      header: 'Detalles de la Reserva',
-      message: message,
-      buttons: ['OK'],
+    const alert = await this.alertCtrl.create({ 
+      header: 'Detalles de la Reserva', 
+      message: message, 
+      buttons: ['OK'], 
+      mode: 'ios',
+      cssClass: 'reservation-detail-alert' 
     });
     await alert.present();
   }
+
 
   getEventColor(status: ReservationStatus | undefined): string {
     switch (status) {
       case ReservationStatus.CONFIRMADA: return 'var(--ion-color-success, #2dd36f)';
       case ReservationStatus.PENDIENTE: return 'var(--ion-color-warning, #ffc409)';
       case ReservationStatus.CANCELADA: return 'var(--ion-color-danger, #eb445a)';
-      case ReservationStatus.RECHAZADA: return 'var(--ion-color-medium, #808080)';
+      case ReservationStatus.RECHAZADA: return 'var(--ion-color-medium, #92949c)';
       default: return 'var(--ion-color-primary, #3880ff)';
     }
   }
 
-  async handleRefresh(event?: any) {
-    console.log('Refrescando listas con Pull-to-refresh...');
-    try {
-      await this.loadDataBasedOnSegment();
-    } catch (error: any) {
-        console.error("Error durante el refresco:", error);
-        this.presentToast(error?.message || "Error al refrescar los datos.", "danger");
-    } finally {
-      if (event && event.target && typeof event.target.complete === 'function') {
-        event.target.complete();
-      }
-    }
+  async presentToast(message: string, color: 'success' | 'danger' | 'warning' | 'primary' | 'medium' | 'light', duration: number = 3000) {
+    const toast = await this.toastCtrl.create({ message, duration, color, position: 'top', buttons: [{text:'OK',role:'cancel'}] });
+    await toast.present();
   }
 
-  async presentToast(message: string, color: 'success' | 'danger' | 'warning' | 'primary' | 'secondary' | 'tertiary' | 'light' | 'medium' | 'dark') {
-    const toast = await this.toastCtrl.create({ 
-      message, 
-      duration: 3500, 
-      color, 
-      position: 'top',
-      buttons: [{text: 'OK', role: 'cancel'}]
-    });
-    await toast.present();
+  toggleMyReservationsSection() {
+    this.showPendingSection = !this.showPendingSection; 
+  }
+
+  public doLogout() {
+    this.authService.logout();
   }
 
   ngOnDestroy() {

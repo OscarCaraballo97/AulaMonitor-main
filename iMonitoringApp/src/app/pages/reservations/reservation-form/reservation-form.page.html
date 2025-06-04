@@ -59,7 +59,30 @@
           </ion-select-option>
         </ion-select>
       </ion-item>
+
       <ion-item lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark dark:text-kwd-light focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
+        <ion-label position="stacked" class="text-gray-700 dark:text-gray-300">Hora de Inicio <span class="text-red-500">*</span></ion-label>
+        <ion-select formControlName="startTime" interface="popover" placeholder="Selecciona una hora de inicio"
+                    class="text-gray-900 dark:text-kwd-light"
+                    [ngClass]="{'ion-invalid ion-touched': reservationForm.get('startTime')?.invalid && reservationForm.get('startTime')?.touched}">
+          <ion-select-option *ngFor="let time of availableStartTimes" [value]="time.value">
+            {{ time.display }}
+          </ion-select-option>
+        </ion-select>
+      </ion-item>
+      <div *ngIf="reservationForm.get('startTime')?.invalid && reservationForm.get('startTime')?.touched" class="text-xs text-red-600 dark:text-kwd-red mt-1 px-4">
+        <small *ngIf="reservationForm.get('startTime')?.errors?.['required']">La hora de inicio es requerida.</small>
+        <small *ngIf="reservationForm.get('startTime')?.errors?.['slotUnavailable']">La franja horaria no está disponible.</small>
+      </div>
+      <div *ngIf="isLoadingTimes && reservationForm.get('classroomId')?.value && reservationForm.get('reservationDateControl')?.value" class="text-xs text-gray-500 dark:text-gray-400 mt-1 px-4">
+        <ion-spinner name="dots" class="mr-1"></ion-spinner> Cargando horarios...
+      </div>
+      <div *ngIf="!isLoadingTimes && availableStartTimes.length === 0 && reservationForm.get('classroomId')?.value && reservationForm.get('reservationDateControl')?.value && !(reservationForm.get('startTime')?.invalid && reservationForm.get('startTime')?.touched)" class="text-xs text-orange-600 dark:text-kwd-red mt-1 px-4">
+        <small>No hay horarios disponibles para el aula y fecha seleccionados.</small>
+      </div>
+
+
+      <ion-item lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark dark:text-kwd-light">
         <ion-label position="stacked" class="text-gray-700 dark:text-gray-300">Duración <span class="text-red-500">*</span></ion-label>
         <ion-select formControlName="durationBlocks" interface="popover" placeholder="Selecciona duración"
                     class="text-gray-900 dark:text-kwd-light"
@@ -69,10 +92,17 @@
           </ion-select-option>
         </ion-select>
       </ion-item>
-      <div *ngIf="reservationForm.get('classroomId')?.value && reservationForm.get('reservationDateControl')?.value && reservationForm.get('durationBlocks')?.value">
-         </div>
-       <ion-item *ngIf="reservationForm.get('endTime')?.value && !reservationForm.get('endTime')?.hasError('slotUnavailable')" lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark dark:text-kwd-light">
-         </ion-item>
+
+      <ion-item lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark dark:text-kwd-light">
+        <ion-label position="stacked" class="text-gray-700 dark:text-gray-300">Hora de Fin (Automático)</ion-label>
+        <ion-input type="text" [value]="reservationForm.get('endTime')?.value ? (datePipe.transform(reservationForm.get('endTime')?.value, 'HH:mm', 'America/Bogota', 'es-CO') || 'N/A') : 'N/A'" readonly class="text-gray-900 dark:text-kwd-light"></ion-input>
+      </ion-item>
+      <div *ngIf="reservationForm.get('endTime')?.invalid && reservationForm.get('endTime')?.touched" class="text-xs text-red-600 dark:text-kwd-red mt-1 px-4">
+        <small *ngIf="reservationForm.get('endTime')?.errors?.['required']">La hora de fin es requerida.</small>
+        <small *ngIf="reservationForm.get('endTime')?.errors?.['dateTimeOrder']">La hora de fin debe ser posterior a la de inicio.</small>
+        <small *ngIf="reservationForm.get('endTime')?.errors?.['slotUnavailable']">La franja horaria seleccionada no está disponible.</small>
+      </div>
+
       <ion-item lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark dark:text-kwd-light focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
         <ion-label position="stacked" class="text-gray-700 dark:text-gray-300">Propósito <span class="text-red-500">*</span></ion-label>
         <ion-textarea formControlName="purpose" rows="3" placeholder="Ej: Clase de cálculo, Tutoría de física..."
