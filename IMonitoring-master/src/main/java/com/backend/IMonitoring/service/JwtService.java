@@ -86,17 +86,14 @@ public class JwtService {
     }
 
     private boolean isTokenExpired(String token) {
-        return extractExpiration(token).before(new Date());
+        return extractAllClaims(token).getExpiration().before(new Date());
     }
 
-    private Date extractExpiration(String token) {
-        return extractAllClaims(token).getExpiration();
-    }
-
+    @SuppressWarnings("deprecation")
     private Claims extractAllClaims(String token) {
-
         return Jwts.parser()
                 .setSigningKey(getSignInKey())
+                .build()
                 .parseClaimsJws(token)
                 .getBody();
     }
