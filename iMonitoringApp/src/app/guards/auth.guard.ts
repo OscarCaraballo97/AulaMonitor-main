@@ -1,26 +1,34 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router, ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
 import { AuthService } from '../services/auth.service';
-import { Observable } from 'rxjs';
-import { map, take, tap } from 'rxjs/operators';
+import { Observable, of } from 'rxjs'; 
+import { map, take, switchMap, tap } from 'rxjs/operators';
 
 export const authGuard: CanActivateFn = (
   route: ActivatedRouteSnapshot,
   state: RouterStateSnapshot
-): Observable<boolean> | Promise<boolean> | boolean => {
+): Observable<boolean> => {
   const authService = inject(AuthService);
   const router = inject(Router);
 
-  return authService.isAuthenticated.pipe(
+  return authService.isAuthReady.pipe(
     take(1), 
-    map(isAuthenticated => {
-      if (isAuthenticated) {
-        return true;
-      } else {
-        console.log('[AuthGuard] Usuario no autenticado, redirigiendo a login.');
+    switchMap(isReady => {
+      if (!isReady) {
+        console.warn('[AuthGuard] AuthService no está listo, redirigiendo a login.');
         router.navigate(['/login'], { queryParams: { returnUrl: state.url } });
-        return false;
+        return of(false);
       }
+      return authService.isAuthenticated.pipe(
+        take(1),
+        tap(isAuthenticated => {
+          if (!isAuthenticated) {
+            console.log('[AuthGuard] Usuario no autenticado, redirigiendo a login.');
+            router.navigate(['/login'], { queryParams: { returnUrl: state.url } });
+          }
+        }),
+        map(isAuthenticated => isAuthenticated)
+      );
     })
   );
 };

@@ -1,8 +1,10 @@
+// Ruta: iMonitoringApp/src/app/main-layout/main-layout.page.ts
+
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { Router, RouterModule, NavigationEnd, IsActiveMatchOptions, ActivatedRoute, Routes } from '@angular/router';
+import { Router, RouterModule, NavigationEnd, IsActiveMatchOptions, ActivatedRoute } from '@angular/router'; // Eliminar Routes
 import { IonicModule, Platform, PopoverController, NavController, MenuController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
-import { AuthService } from '../services/auth.service';
+import { AuthService, AuthData } from '../services/auth.service'; // Asegurarse de importar AuthData si aún se usa
 import { ThemeService } from '../services/theme.service';
 import { Rol } from '../models/rol.model';
 import { User } from '../models/user.model';
@@ -67,14 +69,16 @@ export class MainLayoutPage implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    this.authService.getCurrentUserRole().pipe(takeUntil(this.destroy$)).subscribe((role: Rol | null) => {
+    // Usar la propiedad observable directamente
+    this.authService.currentUserRole.pipe(takeUntil(this.destroy$)).subscribe((role: Rol | null) => {
       this.userRole = role;
       this.setupNavLinks();
       this.updateFilteredNavLinks();
       this.cdr.detectChanges();
     });
 
-    this.authService.getCurrentUser().pipe(
+    // Usar la propiedad observable directamente
+    this.authService.currentUser.pipe(
       takeUntil(this.destroy$)
     ).subscribe((user: User | null) => {
       this.currentUser = user;

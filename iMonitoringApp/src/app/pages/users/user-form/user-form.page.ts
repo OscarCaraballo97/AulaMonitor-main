@@ -49,17 +49,17 @@ export class UserFormPage implements OnInit, OnDestroy {
     this.userForm = this.fb.group({
       name: ['', [Validators.required, Validators.minLength(3)]],
       email: ['', [Validators.required, Validators.email]],
-      password: [''], 
+      password: [''],
       role: [Rol.ESTUDIANTE, Validators.required],
       avatarUrl: ['']
     });
     console.log("UserFormPage: userForm ha sido inicializado:", !!this.userForm);
 
-    this.authService.getCurrentUser().pipe(takeUntil(this.destroy$)).subscribe(user => {
+    this.authService.currentUser.pipe(takeUntil(this.destroy$)).subscribe((user: User | null) => {
         this.currentUser = user;
         this.loggedInUserRole = user?.role || null;
         this.setupRolesForSelect();
-        this.cdr.detectChanges(); 
+        this.cdr.detectChanges();
     });
 
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe(params => {
@@ -83,7 +83,7 @@ export class UserFormPage implements OnInit, OnDestroy {
   setupRolesForSelect() {
     if (this.loggedInUserRole === Rol.ADMIN) {
       this.rolesForSelect = Object.keys(Rol)
-        .filter(key => isNaN(Number(key))) 
+        .filter(key => isNaN(Number(key)))
         .map(key => ({ key: key.replace('_', ' '), value: Rol[key as keyof typeof Rol] }));
     } else if (this.loggedInUserRole === Rol.COORDINADOR) {
      
@@ -91,7 +91,7 @@ export class UserFormPage implements OnInit, OnDestroy {
         .filter(key => isNaN(Number(key)) && [Rol.ESTUDIANTE, Rol.TUTOR, Rol.PROFESOR].includes(Rol[key as keyof typeof Rol]))
         .map(key => ({ key: key.replace('_', ' '), value: Rol[key as keyof typeof Rol] }));
     } else {
-      this.rolesForSelect = []; 
+      this.rolesForSelect = [];
     }
     console.log("UserFormPage: rolesForSelect configurados:", this.rolesForSelect);
   }
@@ -162,7 +162,7 @@ export class UserFormPage implements OnInit, OnDestroy {
     if (this.isEditMode && this.userId) {
       operation = this.userService.updateUser(this.userId, userData);
     } else {
-      operation = this.userService.createUser(userData as User); 
+      operation = this.userService.createUser(userData as User);
     }
 
     operation.pipe(

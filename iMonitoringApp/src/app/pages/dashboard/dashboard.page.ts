@@ -1,18 +1,18 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, DatePipe, formatDate } from '@angular/common';
-import { IonicModule, LoadingController, NavController, ToastController, AlertController } from '@ionic/angular'; 
+import { IonicModule, LoadingController, NavController, ToastController, AlertController } from '@ionic/angular';
 import { Router, RouterModule } from '@angular/router';
-import { Subject, forkJoin, of, Observable } from 'rxjs'; 
+import { Subject, forkJoin, of, Observable } from 'rxjs';
 import { takeUntil, finalize, catchError, map } from 'rxjs/operators';
 import { AuthService, AuthData } from '../../services/auth.service';
-import { ReservationService, PaginatedReservations } from '../../services/reservation.service'; 
+import { ReservationService, PaginatedReservations } from '../../services/reservation.service';
 import { UserService } from '../../services/user.service';
 import { User } from '../../models/user.model';
 import { Rol } from '../../models/rol.model';
 import { Reservation, ReservationStatus } from '../../models/reservation.model';
 import { BuildingService } from '../../services/building.service';
 import { ClassroomService } from '../../services/classroom.service';
-import { Building } from '../../models/building.model';
+import { BuildingDTO } from '../../models/building.model';
 import { Classroom } from '../../models/classroom.model';
 import { ClassroomType as ReservationClassroomTypeEnum } from '../../models/classroom-type.enum';
 
@@ -22,7 +22,7 @@ import { ClassroomType as ReservationClassroomTypeEnum } from '../../models/clas
   styleUrls: ['./dashboard.page.scss'],
   standalone: true,
   imports: [IonicModule, CommonModule, RouterModule],
-  providers: [DatePipe] 
+  providers: [DatePipe]
 })
 export class DashboardPage implements OnInit, OnDestroy {
   currentUser: User | null = null;
@@ -42,9 +42,9 @@ export class DashboardPage implements OnInit, OnDestroy {
   isLoading = false;
   errorMessage: string | null = null;
 
-  showMyReservationsSection: boolean = true; 
-  isLoadingUpcomingReservations: boolean = false; 
-  classroomAvailabilitySummary: { availableNow: number; total: number; } | null = null; 
+  showMyReservationsSection: boolean = true;
+  isLoadingUpcomingReservations: boolean = false;
+  classroomAvailabilitySummary: { availableNow: number; total: number; } | null = null;
 
 
   private destroy$ = new Subject<void>();
@@ -60,7 +60,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     private toastCtrl: ToastController,
     private cdr: ChangeDetectorRef,
     private router: Router,
-    public datePipe: DatePipe, 
+    public datePipe: DatePipe,
     private alertCtrl: AlertController
   ) {}
 
@@ -117,31 +117,31 @@ export class DashboardPage implements OnInit, OnDestroy {
     const observablesMap: { [key: string]: Observable<any> } = {};
 
     observablesMap['myRecentReservations'] = this.reservationService.getMyReservations(
-      'startTime', 
-      'desc',      
-      0,           
-      5,           
-      undefined,   
-      false        
+      'startTime',
+      'desc',
+      0,
+      5,
+      undefined,
+      false
     ).pipe(
-        map((pageResponse: PaginatedReservations) => pageResponse.content), 
+        map((pageResponse: PaginatedReservations) => pageResponse.content),
         catchError(err => {
             console.error('Error loading my recent reservations:', err);
             this.presentToast('Error al cargar mis reservas recientes.', 'danger');
-            return of([]); 
+            return of([]);
         })
     );
 
 
     observablesMap['upcomingReservationsList'] = this.reservationService.getMyReservations(
-      'startTime', 
-      'asc',       
-      0,           
-      5,           
-      undefined,   
-      true    
+      'startTime',
+      'asc',
+      0,
+      5,
+      undefined,
+      true
     ).pipe(
-        map((pageResponse: PaginatedReservations) => pageResponse.content), 
+        map((pageResponse: PaginatedReservations) => pageResponse.content),
         catchError(err => {
             console.error('Error loading upcoming reservations list:', err);
             return of([]);
@@ -154,14 +154,14 @@ export class DashboardPage implements OnInit, OnDestroy {
 
 
     if (this.userRole === Rol.ADMIN || this.userRole === Rol.COORDINADOR) {
-      observablesMap['pendingReservations'] = this.reservationService.getAllReservations({ status: ReservationStatus.PENDIENTE, page: 0, size: 1 }).pipe( 
-        map((pageResponse: PaginatedReservations) => pageResponse.totalElements), 
+      observablesMap['pendingReservations'] = this.reservationService.getAllReservations({ status: ReservationStatus.PENDIENTE, page: 0, size: 1 }).pipe(
+        map((pageResponse: PaginatedReservations) => pageResponse.totalElements),
         catchError(err => {
             console.error('Error loading pending reservations count:', err);
-            return of(0); 
+            return of(0);
         })
       );
-      observablesMap['totalReservations'] = this.reservationService.getAllReservations({ page: 0, size: 1 }).pipe( 
+      observablesMap['totalReservations'] = this.reservationService.getAllReservations({ page: 0, size: 1 }).pipe(
         map((pageResponse: PaginatedReservations) => pageResponse.totalElements),
         catchError(err => {
             console.error('Error loading total reservations count:', err);
@@ -172,7 +172,7 @@ export class DashboardPage implements OnInit, OnDestroy {
         map(users => users.length),
         catchError(err => {
             console.error('Error loading total users count:', err);
-            return of(0); 
+            return of(0);
         })
       );
       observablesMap['allBuildings'] = this.buildingService.getAllBuildings().pipe(
@@ -186,12 +186,15 @@ export class DashboardPage implements OnInit, OnDestroy {
         map(classrooms => classrooms.length),
         catchError(err => {
             console.error('Error loading total classrooms count:', err);
-            return of(0); 
+            return of(0);
         })
       );
 
-      observablesMap['classroomAvailabilitySummary'] = of({ availableNow: 5, total: 10 }).pipe( // Dummy data
-
+      observablesMap['classroomAvailabilitySummary'] = this.classroomService.getAvailabilitySummary().pipe(
+        catchError(err => {
+          console.error('Error loading classroom availability summary:', err);
+          return of({ availableNow: 0, occupiedNow: 0, total: 0 });
+        })
       );
     }
 
@@ -205,8 +208,8 @@ export class DashboardPage implements OnInit, OnDestroy {
     ).subscribe({
       next: (results: any) => {
         this.myRecentReservations = results['myRecentReservations'] || [];
-        this.upcomingReservations = results['upcomingReservationsList'] || []; 
-        this.upcomingReservationsCount = this.upcomingReservations.length; 
+        this.upcomingReservations = results['upcomingReservationsList'] || [];
+        this.upcomingReservationsCount = this.upcomingReservations.length;
 
         if (this.userRole === Rol.ADMIN || this.userRole === Rol.COORDINADOR) {
           this.pendingReservationsCount = results['pendingReservations'] || 0;
@@ -222,7 +225,7 @@ export class DashboardPage implements OnInit, OnDestroy {
       error: (err: any) => {
         console.error('Dashboard data loading error:', err);
         this.errorMessage = err.message || 'Error al cargar algunos datos del panel.';
-        this.presentToast(this.errorMessage ?? 'Ocurrió un error desconocido.', 'danger'); 
+        this.presentToast(this.errorMessage ?? 'Ocurrió un error desconocido.', 'danger');
         this.cdr.detectChanges();
       }
     });
@@ -243,8 +246,8 @@ export class DashboardPage implements OnInit, OnDestroy {
       return;
     }
 
-    const startTimeStr = reservation.startTime || '';
-    const endTimeStr = reservation.endTime || '';
+    const startTimeStr = reservation.startTime?.toString() || '';
+    const endTimeStr = reservation.endTime?.toString() || '';
 
     const startTimeForFormat = (startTimeStr && !startTimeStr.endsWith('Z')) ? startTimeStr + 'Z' : startTimeStr;
     const endTimeForFormat = (endTimeStr && !endTimeStr.endsWith('Z')) ? endTimeStr + 'Z' : endTimeStr;
@@ -255,7 +258,7 @@ export class DashboardPage implements OnInit, OnDestroy {
 
 
     const message = `<b>Motivo:</b> ${reservation.purpose || 'No especificado'}<br>` +
-                   `<b>Aula:</b> ${reservation.classroom?.name || 'N/A'} (${reservation.classroom?.buildingName || 'N/A'})<br>` +
+                   `<b>Aula:</b> ${reservation.classroom?.name || 'N/A'} (${reservation.classroom?.building?.name || 'N/A'})<br>` + // Acceso correcto a building.name
                    `<b>Inicio:</b> ${startTime}<br>` +
                    `<b>Fin:</b> ${endTime}<br>` +
                    `<b>Estado:</b> ${statusDisplay}<br>` +

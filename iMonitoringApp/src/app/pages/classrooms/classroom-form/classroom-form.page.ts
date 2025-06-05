@@ -1,13 +1,14 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { IonicModule, LoadingController, ToastController, NavController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
+
 import { ClassroomService, ClassroomRequestData } from '../../../services/classroom.service';
 import { BuildingService } from '../../../services/building.service';
 import { Classroom } from '../../../models/classroom.model';
 import { ClassroomType } from '../../../models/classroom-type.enum';
-import { Building } from '../../../models/building.model';
+import { BuildingDTO } from '../../../models/building.model';
 import { AuthService } from '../../../services/auth.service';
 import { Rol } from '../../../models/rol.model';
 import { Observable, Subject, forkJoin, of } from 'rxjs';
@@ -21,7 +22,13 @@ import { UserService } from '../../../services/user.service';
   templateUrl: './classroom-form.page.html',
   styleUrls: ['./classroom-form.page.scss'],
   standalone: true,
-  imports: [IonicModule, CommonModule, ReactiveFormsModule, RouterModule]
+  imports: [
+    IonicModule,
+    CommonModule,
+    ReactiveFormsModule,
+    RouterModule
+  ],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class ClassroomFormPage implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
@@ -31,7 +38,7 @@ export class ClassroomFormPage implements OnInit, OnDestroy {
   pageTitle = 'Nueva Aula';
   isLoading = false;
   isLoadingInitialData = true;
-  buildings: Building[] = [];
+  buildings: BuildingDTO[] = [];
   userRole: Rol | null = null;
   studentUsers: User[] = [];
 
@@ -75,19 +82,19 @@ export class ClassroomFormPage implements OnInit, OnDestroy {
     this.cdr.detectChanges();
 
     const observables: { [key: string]: Observable<any> } = {
-      user: this.authService.getCurrentUser().pipe(take(1)),
-      role: this.authService.getCurrentUserRole().pipe(take(1)),
+      user: this.authService.currentUser.pipe(take(1)),
+      role: this.authService.currentUserRole.pipe(take(1)),
       buildingsData: this.buildingService.getAllBuildings().pipe(
         tap(bldgs => console.log("ClassroomFormPage: Edificios recibidos en forkJoin:", bldgs)),
         catchError(err => {
           console.error("ClassroomFormPage: Error crítico cargando edificios:", err);
           this.presentToast('Error crítico: No se pudieron cargar los edificios.', 'danger');
-          return of([] as Building[]);
+          return of([] as BuildingDTO[]);
         })
       )
     };
 
-    this.authService.getCurrentUserRole().pipe(take(1)).subscribe(roleValue => {
+    this.authService.currentUserRole.pipe(take(1)).subscribe((roleValue: Rol | null) => {
       this.userRole = roleValue;
       console.log("ClassroomFormPage: Rol obtenido en la suscripción externa:", this.userRole);
 
@@ -152,6 +159,7 @@ export class ClassroomFormPage implements OnInit, OnDestroy {
 
   async loadClassroomData(id: string) {
     this.isLoading = true;
+    this.isLoadingInitialData = true;
     const loading = await this.loadingCtrl.create({ message: 'Cargando datos del aula...' });
     await loading.present();
 
@@ -159,6 +167,7 @@ export class ClassroomFormPage implements OnInit, OnDestroy {
       takeUntil(this.destroy$),
       finalize(async () => {
         this.isLoading = false;
+        this.isLoadingInitialData = false;
         await loading.dismiss();
         this.cdr.detectChanges();
         console.log("ClassroomFormPage: loadClassroomData finalizado.");

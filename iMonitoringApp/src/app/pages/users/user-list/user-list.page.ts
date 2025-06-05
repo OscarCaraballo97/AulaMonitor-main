@@ -35,7 +35,7 @@ export class UserListPage implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-     this.authService.getCurrentUserRole().pipe(takeUntil(this.destroy$)).subscribe(role => {
+     this.authService.currentUserRole.pipe(takeUntil(this.destroy$)).subscribe((role: Rol | null) => {
         this.currentUserRole = role;
      });
   }
@@ -144,7 +144,7 @@ export class UserListPage implements OnInit, OnDestroy {
         { text: 'Cancelar', role: 'cancel' },
         {
           text: 'Eliminar',
-          cssClass: 'text-danger', 
+          cssClass: 'text-danger',
           handler: () => this.deleteUser(user.id!),
         },
       ],

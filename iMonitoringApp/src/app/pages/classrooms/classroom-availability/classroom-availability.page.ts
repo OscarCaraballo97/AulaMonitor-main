@@ -40,16 +40,16 @@ export class ClassroomAvailabilityPage implements OnInit, OnDestroy {
   userRole: Rol | null = null;
 
   isLoadingClassrooms = true;
-  isLoadingTimes = false; 
+  isLoadingTimes = false;
   existingReservationsForDay: Reservation[] = [];
   
   public RolEnum = Rol;
   public ReservationStatusEnum = ReservationStatus;
 
 
-  selectedDateForTimeSlots: string = ''; 
+  selectedDateForTimeSlots: string = '';
   minDate: string;
-  maxDate: string; 
+  maxDate: string;
   availableStartTimes: { value: string, display: string }[] = [];
   readonly SLOT_DURATION_MINUTES = 45;
 
@@ -75,14 +75,14 @@ export class ClassroomAvailabilityPage implements OnInit, OnDestroy {
     public datePipe: DatePipe
   ) {
     const today = new Date();
-    this.minDate = formatDate(today, 'yyyy-MM-dd', 'en-US'); 
+    this.minDate = formatDate(today, 'yyyy-MM-dd', 'en-US');
     const oneYearFromNow = new Date();
     oneYearFromNow.setFullYear(today.getFullYear() + 1);
-    this.maxDate = formatDate(oneYearFromNow, 'yyyy-MM-dd', 'en-US'); 
+    this.maxDate = formatDate(oneYearFromNow, 'yyyy-MM-dd', 'en-US');
   }
 
   ngOnInit() {
-    this.authService.currentUser.pipe(takeUntil(this.destroy$)).subscribe(user => {
+    this.authService.currentUser.pipe(takeUntil(this.destroy$)).subscribe((user: User | null) => {
       this.currentUser = user;
       this.userRole = user?.role || null;
     });
@@ -135,13 +135,13 @@ export class ClassroomAvailabilityPage implements OnInit, OnDestroy {
   async onClassroomChange(event: any) {
     const newClassroomId = event.detail.value;
     this.selectedClassroomId = newClassroomId;
-    this.existingReservationsForDay = []; 
+    this.existingReservationsForDay = [];
     this.availableStartTimes = [];
 
     if (this.selectedClassroomId && this.selectedDateForTimeSlots) {
       await this.loadAvailabilityData(this.selectedClassroomId, this.selectedDateForTimeSlots);
     } else {
-      this.router.navigate([], { 
+      this.router.navigate([], {
         relativeTo: this.route,
         queryParams: { classroomId: this.selectedClassroomId },
         queryParamsHandling: 'merge',
@@ -180,7 +180,7 @@ export class ClassroomAvailabilityPage implements OnInit, OnDestroy {
         this.reservationService.getReservationsByClassroomAndDateRange(classroomId, dayStartUTC, dayEndUTC)
           .pipe(takeUntil(this.destroy$))
       );
-      this.existingReservationsForDay = reservations.filter(r => 
+      this.existingReservationsForDay = reservations.filter(r =>
         r.status === ReservationStatus.CONFIRMADA || r.status === ReservationStatus.PENDIENTE
       );
       this.generateAvailableTimeSlots();
@@ -201,23 +201,23 @@ export class ClassroomAvailabilityPage implements OnInit, OnDestroy {
     }
 
     const slots: { value: string, display: string }[] = [];
-    const openingHour = 7; 
-    let dayClosingHour = 22; 
+    const openingHour = 7;
+    let dayClosingHour = 22;
     const dateParts = this.selectedDateForTimeSlots.split('-').map(Number);
     const localYear = dateParts[0];
-    const localMonth = dateParts[1] - 1; 
+    const localMonth = dateParts[1] - 1;
     const localDay = dateParts[2];
     
     
     const selectedDateObjectForDayCheck = new Date(localYear, localMonth, localDay);
-    const dayOfWeek = selectedDateObjectForDayCheck.getDay(); 
+    const dayOfWeek = selectedDateObjectForDayCheck.getDay();
 
-    if (dayOfWeek === 0) { 
-        this.availableStartTimes = []; 
+    if (dayOfWeek === 0) {
+        this.availableStartTimes = [];
         this.presentToast("Los domingos no son días hábiles para reservas.", "warning");
-        return; 
-    } else if (dayOfWeek === 6) { 
-        dayClosingHour = 12; 
+        return;
+    } else if (dayOfWeek === 6) {
+        dayClosingHour = 12;
     }
 
     const now = new Date();
@@ -246,7 +246,7 @@ export class ClassroomAvailabilityPage implements OnInit, OnDestroy {
         }
         
         if (dayOfWeek === 6 && potentialSlotEndLocalTime.getHours() >= 12 && potentialSlotEndLocalTime.getMinutes() > 0) {
-            continue; 
+            continue;
         }
 
 
@@ -267,7 +267,7 @@ export class ClassroomAvailabilityPage implements OnInit, OnDestroy {
         }
         if (isThisIndividualSlotAvailable) {
           slots.push({
-            value: slotStartLocalTime.toISOString(), 
+            value: slotStartLocalTime.toISOString(),
             display: this.datePipe.transform(slotStartLocalTime, 'h:mm a', 'America/Bogota') || '' // Formato de hora am/pm
           });
         }
@@ -295,7 +295,7 @@ export class ClassroomAvailabilityPage implements OnInit, OnDestroy {
         classroomId: this.selectedClassroomId,
         startTime: selectedStartTime.toISOString(),
         endTime: endTime.toISOString(),
-        allDay: 'false' 
+        allDay: 'false'
       }
     });
   }

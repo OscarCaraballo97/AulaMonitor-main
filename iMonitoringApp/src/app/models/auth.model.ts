@@ -1,11 +1,12 @@
 import { Rol } from './rol.model';
+import { User } from './user.model'; 
 
 export interface AuthResponse {
   token: string;
   refreshToken?: string;
 }
 
-export interface LoginCredentials {
+export interface LoginCredentials { 
   email: string;
   password: string;
 }

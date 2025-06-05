@@ -6,7 +6,7 @@ import { ClassroomService, ClassroomRequestData } from '../../../services/classr
 import { Classroom } from '../../../models/classroom.model';
 import { AuthService } from '../../../services/auth.service';
 import { Rol } from '../../../models/rol.model';
-import { Subject, Observable } from 'rxjs'; 
+import { Subject, Observable } from 'rxjs';
 import { takeUntil, finalize, catchError } from 'rxjs/operators';
 
 @Component({
@@ -22,7 +22,7 @@ export class ClassroomListPage implements OnInit, OnDestroy {
   isLoading = false;
   userRole: Rol | null = null;
   public RolEnum = Rol;
-  errorMessage: string = ''; 
+  errorMessage: string = '';
 
   constructor(
     private classroomService: ClassroomService,
@@ -35,9 +35,10 @@ export class ClassroomListPage implements OnInit, OnDestroy {
   ) { }
 
   ngOnInit() {
-    this.authService.getCurrentUserRole()
+    // Usar la propiedad observable directamente y tipar 'role'
+    this.authService.currentUserRole
       .pipe(takeUntil(this.destroy$))
-      .subscribe(role => {
+      .subscribe((role: Rol | null) => { // Tipar 'role' como Rol | null
         this.userRole = role;
         this.cdr.detectChanges();
       });
@@ -54,7 +55,7 @@ export class ClassroomListPage implements OnInit, OnDestroy {
 
   async loadClassrooms(event?: CustomEvent) {
     this.isLoading = true;
-    this.errorMessage = ''; 
+    this.errorMessage = '';
     let loadingOverlay: HTMLIonLoadingElement | undefined;
     if (!event) {
       loadingOverlay = await this.loadingCtrl.create({ message: 'Cargando aulas...' });
@@ -106,7 +107,7 @@ export class ClassroomListPage implements OnInit, OnDestroy {
     return `Edificio ID: ${buildingId}`;
   }
 
-  async confirmDelete(classroom: Classroom) { 
+  async confirmDelete(classroom: Classroom) {
     if (!classroom || !classroom.id) return;
     const classroomId = classroom.id;
     const alert = await this.alertCtrl.create({
@@ -135,7 +136,7 @@ export class ClassroomListPage implements OnInit, OnDestroy {
       .subscribe({
         next: async () => {
           await this.presentToast('Aula eliminada correctamente.', 'success');
-          this.loadClassrooms(); 
+          this.loadClassrooms();
         },
         error: async (err: Error) => {
           await this.presentToast(err.message || 'Error al eliminar el aula.', 'danger');

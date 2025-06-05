@@ -16,7 +16,7 @@ import { AuthService, AuthData } from '../../../services/auth.service';
 import { Reservation, ReservationStatus } from '../../../models/reservation.model';
 import { ClassroomType as ReservationClassroomTypeEnum } from '../../../models/classroom-type.enum';
 import { User } from '../../../models/user.model';
-import { Rol } from '../../../models/rol.model'; 
+import { Rol } from '../../../models/rol.model';
 
 import { Subject } from 'rxjs';
 import { takeUntil, finalize, catchError } from 'rxjs/operators';
@@ -36,7 +36,7 @@ import { HttpErrorResponse } from '@angular/common/http';
     IonInfiniteScroll, IonInfiniteScrollContent,
     TitleCasePipe
   ],
-  providers: [DatePipe] 
+  providers: [DatePipe]
 })
 export class ReservationListPage implements OnInit, OnDestroy, AfterViewInit {
   currentUser: User | null = null;
@@ -49,7 +49,7 @@ export class ReservationListPage implements OnInit, OnDestroy, AfterViewInit {
 
   pendingReservations: Reservation[] = [];
   isLoadingPending = false;
-  showPendingSection = true; 
+  showPendingSection = true;
 
   myReservations: Reservation[] = [];
   filteredMyReservations: Reservation[] = [];
@@ -74,7 +74,7 @@ export class ReservationListPage implements OnInit, OnDestroy, AfterViewInit {
     { value: ReservationStatus.CANCELADA, label: 'Cancelada' }
   ];
 
-  errorMessage: string | null = null; 
+  errorMessage: string | null = null;
 
   currentPage = 0;
   itemsPerPage = 10;
@@ -96,7 +96,7 @@ export class ReservationListPage implements OnInit, OnDestroy, AfterViewInit {
     private cdr: ChangeDetectorRef,
     private popoverCtrl: PopoverController,
     private route: ActivatedRoute,
-    public datePipe: DatePipe 
+    public datePipe: DatePipe
   ) {}
 
   ngOnInit() {
@@ -136,10 +136,10 @@ export class ReservationListPage implements OnInit, OnDestroy, AfterViewInit {
       this.segmentValue = 'my-reservations';
       console.log('determineInitialSegment: Defaulted to "my-reservations" for ADMIN/COORDINATOR.');
     } else {
-      this.segmentValue = 'my-reservations'; 
+      this.segmentValue = 'my-reservations';
       console.log('determineInitialSegment: Defaulted to "my-reservations" for non-ADMIN/COORDINATOR roles.');
     }
-    this.cdr.detectChanges(); 
+    this.cdr.detectChanges();
     console.log('Final determined initial segment:', this.segmentValue);
   }
 
@@ -541,8 +541,8 @@ export class ReservationListPage implements OnInit, OnDestroy, AfterViewInit {
       return;
     }
 
-    const startTimeStr = reservation.startTime || '';
-    const endTimeStr = reservation.endTime || '';
+    const startTimeStr = reservation.startTime?.toString() || '';
+    const endTimeStr = reservation.endTime?.toString() || '';
 
     const startTimeForFormat = (startTimeStr && !startTimeStr.endsWith('Z')) ? startTimeStr + 'Z' : startTimeStr;
     const endTimeForFormat = (endTimeStr && !endTimeStr.endsWith('Z')) ? endTimeStr + 'Z' : endTimeStr;
@@ -553,7 +553,7 @@ export class ReservationListPage implements OnInit, OnDestroy, AfterViewInit {
 
 
     const message = `<b>Motivo:</b> ${reservation.purpose || 'No especificado'}<br>` +
-                   `<b>Aula:</b> ${reservation.classroom?.name || 'N/A'} (${reservation.classroom?.buildingName || 'N/A'})<br>` +
+                   `<b>Aula:</b> ${reservation.classroom?.name || 'N/A'} (${reservation.classroom?.building?.name || 'N/A'})<br>` +
                    `<b>Inicio:</b> ${startTime}<br>` +
                    `<b>Fin:</b> ${endTime}<br>` +
                    `<b>Estado:</b> ${statusDisplay}<br>` +

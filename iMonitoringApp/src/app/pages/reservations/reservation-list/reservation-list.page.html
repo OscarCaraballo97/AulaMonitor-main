@@ -99,7 +99,7 @@
               <ion-icon [name]="res.classroom?.type === ReservationClassroomTypeEnum.LABORATORIO ? 'flask-outline' : (res.classroom?.type === ReservationClassroomTypeEnum.AUDITORIO ? 'megaphone-outline' : 'easel-outline')" slot="start" class="text-3xl opacity-80" [style.color]="getEventColor(res.status)"></ion-icon>
               <ion-label class="dark:text-gray-200">
                 <h2 class="font-bold text-md">{{ res.purpose || 'Reserva sin motivo' }}</h2>
-                <p class="text-xs text-gray-500 dark:text-gray-400"><ion-icon name="business-outline" class="mr-1 align-middle"></ion-icon> {{ res.classroom?.name }} ({{ res.classroom?.buildingName || 'N/A' }})</p>
+                {{ res.classroom?.name }} ({{ res.classroom?.building?.name || 'N/A' }})
                 <p class="text-xs text-gray-500 dark:text-gray-400"><ion-icon name="person-outline" class="mr-1 align-middle"></ion-icon> {{ res.user?.name || 'N/A' }}</p>
                 <p class="text-xs text-gray-500 dark:text-gray-400">
                     <ion-icon name="calendar-outline" class="mr-1 align-middle"></ion-icon>
@@ -150,7 +150,7 @@
             <ion-icon [name]="res.classroom?.type === ReservationClassroomTypeEnum.LABORATORIO ? 'flask-outline' : (res.classroom?.type === ReservationClassroomTypeEnum.AUDITORIO ? 'megaphone-outline' : 'easel-outline')" slot="start" class="text-3xl opacity-80" [style.color]="getEventColor(res.status)"></ion-icon>
             <ion-label class="dark:text-gray-200">
               <h2 class="font-bold text-md">{{ res.purpose || 'Reserva sin motivo' }}</h2>
-              <p class="text-xs text-gray-500 dark:text-gray-400"><ion-icon name="business-outline" class="mr-1 align-middle"></ion-icon> {{ res.classroom?.name }} ({{ res.classroom?.buildingName || 'N/A' }})</p>
+              {{ res.classroom?.name }} ({{ res.classroom?.building?.name || 'N/A' }})
               <p class="text-xs text-gray-500 dark:text-gray-400"><ion-icon name="person-outline" class="mr-1 align-middle"></ion-icon> {{ res.user?.name || 'N/A' }}</p>
               <p class="text-xs text-gray-500 dark:text-gray-400">
                   <ion-icon name="calendar-outline" class="mr-1 align-middle"></ion-icon>
@@ -200,7 +200,7 @@
               <ion-icon [name]="res.classroom?.type === ReservationClassroomTypeEnum.LABORATORIO ? 'flask-outline' : (res.classroom?.type === ReservationClassroomTypeEnum.AUDITORIO ? 'megaphone-outline' : 'easel-outline')" slot="start" class="text-3xl opacity-80" [style.color]="getEventColor(res.status)"></ion-icon>
               <ion-label class="dark:text-gray-200">
                 <h2 class="font-bold text-md">{{ res.purpose || 'Reserva sin motivo' }}</h2>
-                <p class="text-xs text-gray-500 dark:text-gray-400"><ion-icon name="business-outline" class="mr-1 align-middle"></ion-icon> {{ res.classroom?.name }} ({{ res.classroom?.buildingName || 'N/A' }})</p>
+                {{ res.classroom?.name }} ({{ res.classroom?.building?.name || 'N/A' }})
                 <p class="text-xs text-gray-500 dark:text-gray-400"><ion-icon name="person-outline" class="mr-1 align-middle"></ion-icon> {{ res.user?.name || 'N/A' }}</p>
                 <p class="text-xs text-gray-500 dark:text-gray-400">
                     <ion-icon name="calendar-outline" class="mr-1 align-middle"></ion-icon>

@@ -1,129 +1,161 @@
-<ion-header>
-  <ion-toolbar color="primary" class="dark:bg-kwd-darker">
+<ion-header [translucent]="true">
+  <ion-toolbar>
     <ion-buttons slot="start">
-      <ion-back-button defaultHref="/app/reservations/my-list" class="dark:text-kwd-light"></ion-back-button>
+      <ion-back-button defaultHref="/app/reservations/my-list"></ion-back-button>
     </ion-buttons>
-    <ion-title class="dark:text-kwd-light">{{ pageTitle }}</ion-title>
+    <ion-title>{{ pageTitle }}</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="cancel()">
+        <ion-icon name="close-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
-<ion-content class="ion-padding bg-gray-100 dark:bg-kwd-dark">
+<ion-content [fullscreen]="true" class="ion-padding custom-background">
+  <ion-grid fixed>
+    <ion-row class="ion-align-items-center ion-justify-content-center">
+      <ion-col size-xs="12" size-sm="10" size-md="8" size-lg="6" size-xl="5">
+        <ion-card class="ion-no-margin kwd-card-compact-shadow">
+          <ion-card-content>
+            <div *ngIf="isLoadingInitialData" class="ion-text-center ion-padding">
+              <ion-spinner name="crescent"></ion-spinner>
+              <p>Cargando formulario...</p>
+            </div>
+            <form [formGroup]="reservationForm" (ngSubmit)="onSubmit()" *ngIf="!isLoadingInitialData">
 
-  <!-- Initial Data Loading Spinner -->
-  <div *ngIf="isLoadingInitialData" class="text-center py-10 flex flex-col items-center justify-center h-full">
-    <ion-spinner name="lines-sharp" color="primary" class="w-12 h-12 mb-4"></ion-spinner>
-    <p class="text-gray-600 dark:text-gray-300">Cargando datos del formulario...</p>
-  </div>
+              <ion-item class="ion-no-padding">
+                <ion-select
+                  label="Aula"
+                  labelPlacement="floating"
+                  formControlName="classroomId"
+                  placeholder="Selecciona un aula"
+                  fill="outline"
+                  [class.ion-invalid]="reservationForm.get('classroomId')?.touched && reservationForm.get('classroomId')?.invalid"
+                  [class.ion-valid]="reservationForm.get('classroomId')?.touched && reservationForm.get('classroomId')?.valid"
+                >
+                  <ion-select-option *ngFor="let classroom of classrooms" [value]="classroom.id">
+                    {{ classroom.name }} ({{ classroom.building?.name }})
+                  </ion-select-option>
+                </ion-select>
+                <ion-note slot="error" *ngIf="reservationForm.get('classroomId')?.hasError('required')">Aula es requerida.</ion-note>
+              </ion-item>
 
-  <!-- Form content, only shown when initial data is loaded -->
-  <form [formGroup]="reservationForm" (ngSubmit)="onSubmit()" *ngIf="!isLoadingInitialData">
-    <ion-list lines="full" class="bg-white dark:bg-kwd-darker rounded-lg shadow-md overflow-hidden mb-4">
+              <ion-item class="ion-no-padding ion-margin-top">
+                <ion-input
+                  label="Propósito"
+                  labelPlacement="floating"
+                  formControlName="purpose"
+                  placeholder="Ej: Clase de cálculo"
+                  fill="outline"
+                  [class.ion-invalid]="reservationForm.get('purpose')?.touched && reservationForm.get('purpose')?.invalid"
+                  [class.ion-valid]="reservationForm.get('purpose')?.touched && reservationForm.get('purpose')?.valid"
+                ></ion-input>
+                <ion-note slot="error" *ngIf="reservationForm.get('purpose')?.hasError('required')">Propósito es requerido.</ion-note>
+                <ion-note slot="error" *ngIf="reservationForm.get('purpose')?.hasError('minlength')">Mínimo 5 caracteres.</ion-note>
+              </ion-item>
 
-      <ion-item class="dark:bg-kwd-darker">
-        <ion-input label="Propósito" labelPlacement="stacked" formControlName="purpose" placeholder="Ej. Clase de Matemáticas" class="dark:text-kwd-light"></ion-input>
-        <ion-note slot="error" *ngIf="reservationForm.get('purpose')?.invalid && reservationForm.get('purpose')?.touched">
-          El propósito es requerido y debe tener al menos 5 caracteres.
-        </ion-note>
-      </ion-item>
+              <ion-item class="ion-no-padding ion-margin-top">
+                <ion-datetime-button datetime="reservationDate"></ion-datetime-button>
+                <ion-modal [keepContentsMounted]="true">
+                  <ng-template>
+                    <ion-datetime
+                      id="reservationDate"
+                      presentation="date"
+                      [min]="minDatetime"
+                      [max]="maxDatetime"
+                      formControlName="reservationDateControl"
+                      [locale]="'es-CO'"
+                      [firstDayOfWeek]="1"
+                    ></ion-datetime>
+                  </ng-template>
+                </ion-modal>
+                <ion-note slot="error" *ngIf="reservationForm.get('reservationDateControl')?.hasError('required') && reservationForm.get('reservationDateControl')?.touched">Fecha es requerida.</ion-note>
+              </ion-item>
 
-      <ion-item class="dark:bg-kwd-darker">
-        <ion-select label="Aula" labelPlacement="stacked" formControlName="classroomId" interface="popover" placeholder="Selecciona un aula" class="dark:text-kwd-light">
-          <ion-select-option *ngFor="let classroom of classrooms" [value]="classroom.id">
-            {{ classroom.name }} ({{ classroom.buildingName }})
-          </ion-select-option>
-        </ion-select>
-        <ion-note slot="error" *ngIf="reservationForm.get('classroomId')?.invalid && reservationForm.get('classroomId')?.touched">
-          El aula es requerida.
-        </ion-note>
-      </ion-item>
+              <ion-item class="ion-no-padding ion-margin-top">
+                <ion-select
+                  label="Hora de inicio"
+                  labelPlacement="floating"
+                  formControlName="startTime"
+                  placeholder="Selecciona una hora"
+                  fill="outline"
+                  [disabled]="!reservationForm.get('reservationDateControl')?.value || !reservationForm.get('classroomId')?.value || isLoadingTimes"
+                  [class.ion-invalid]="reservationForm.get('startTime')?.touched && reservationForm.get('startTime')?.invalid"
+                  [class.ion-valid]="reservationForm.get('startTime')?.touched && reservationForm.get('startTime')?.valid"
+                >
+                  <ion-spinner *ngIf="isLoadingTimes"></ion-spinner>
+                  <ion-select-option *ngFor="let time of availableStartTimes" [value]="time.value">{{ time.display }}</ion-select-option>
+                  <ion-select-option *ngIf="availableStartTimes.length === 0 && !isLoadingTimes" [value]="null" disabled>No hay horarios disponibles</ion-select-option>
+                </ion-select>
+                <ion-note slot="error" *ngIf="reservationForm.get('startTime')?.hasError('required') && reservationForm.get('startTime')?.touched">Hora de inicio es requerida.</ion-note>
+              </ion-item>
 
-      <ion-item class="dark:bg-kwd-darker">
-        <ion-datetime-button datetime="reservationDate" class="dark:text-kwd-light"></ion-datetime-button>
-        <ion-popover [keepContentsMounted]="true">
-          <ng-template>
-            <ion-datetime id="reservationDate"
-                          display-format="DD MMMM YYYY"
-                          picker-format="DD MMMM YYYY"
-                          presentation="date"
-                          [min]="minDatetime"
-                          [max]="maxDatetime"
-                          formControlName="reservationDateControl"
-                          locale="es-CO"
-                          class="dark:bg-kwd-darker dark:text-kwd-light"
-                          [showDefaultButtons]="true"></ion-datetime>
-          </ng-template>
-        </ion-popover>
-        <ion-note slot="error" *ngIf="reservationForm.get('reservationDateControl')?.invalid && reservationForm.get('reservationDateControl')?.touched">
-          La fecha es requerida.
-        </ion-note>
-      </ion-item>
+              <ion-item class="ion-no-padding ion-margin-top">
+                <ion-select
+                  label="Duración"
+                  labelPlacement="floating"
+                  formControlName="durationBlocks"
+                  placeholder="Selecciona duración"
+                  fill="outline"
+                  [disabled]="!reservationForm.get('startTime')?.value"
+                  [class.ion-invalid]="reservationForm.get('durationBlocks')?.touched && reservationForm.get('durationBlocks')?.invalid"
+                  [class.ion-valid]="reservationForm.get('durationBlocks')?.touched && reservationForm.get('durationBlocks')?.valid"
+                >
+                  <ion-select-option *ngFor="let duration of availableDurations" [value]="duration.value">{{ duration.display }}</ion-select-option>
+                </ion-select>
+                <ion-note slot="error" *ngIf="reservationForm.get('durationBlocks')?.hasError('required')">Duración es requerida.</ion-note>
+              </ion-item>
 
-      <ion-item class="dark:bg-kwd-darker">
-        <ion-select label="Hora de Inicio" labelPlacement="stacked" formControlName="startTime" interface="popover" placeholder="Selecciona la hora de inicio" class="dark:text-kwd-light">
-          <div *ngIf="isLoadingTimes" class="text-center py-2">
-            <ion-spinner name="dots" class="w-6 h-6"></ion-spinner>
-            <p class="text-xs text-gray-500 dark:text-gray-400">Cargando horas...</p>
-          </div>
-          <ion-select-option *ngIf="!isLoadingTimes && availableStartTimes.length === 0" [value]="null" disabled>
-            {{ reservationForm.get('classroomId')?.value && reservationForm.get('reservationDateControl')?.value ? 'No hay horas disponibles' : 'Selecciona Aula y Fecha primero' }}
-          </ion-select-option>
-          <ion-select-option *ngFor="let time of availableStartTimes" [value]="time.value">
-            {{ time.display }}
-          </ion-select-option>
-        </ion-select>
-        <ion-note slot="error" *ngIf="reservationForm.get('startTime')?.invalid && reservationForm.get('startTime')?.touched">
-          La hora de inicio es requerida.
-        </ion-note>
-      </ion-item>
+              <ion-item class="ion-no-padding ion-margin-top">
+                <ion-input
+                  label="Hora de fin (Calculada)"
+                  labelPlacement="floating"
+                  formControlName="endTime"
+                  readonly
+                  fill="outline"
+                ></ion-input>
+              </ion-item>
 
-      <ion-item class="dark:bg-kwd-darker">
-        <ion-select label="Duración (Bloques de 45 min)" labelPlacement="stacked" formControlName="durationBlocks" interface="popover" placeholder="Selecciona la duración" class="dark:text-kwd-light">
-          <ion-select-option *ngFor="let duration of availableDurations" [value]="duration.value">
-            {{ duration.display }}
-          </ion-select-option>
-        </ion-select>
-        <ion-note slot="error" *ngIf="reservationForm.get('durationBlocks')?.invalid && reservationForm.get('durationBlocks')?.touched">
-          La duración es requerida.
-        </ion-note>
-      </ion-item>
+              <ion-item class="ion-no-padding ion-margin-top" *ngIf="userRole === RolEnum.ADMIN || userRole === RolEnum.COORDINADOR">
+                <ion-select
+                  label="Asignar a Usuario"
+                  labelPlacement="floating"
+                  formControlName="userId"
+                  placeholder="Selecciona un usuario (opcional)"
+                  fill="outline"
+                >
+                  <ion-select-option *ngIf="userRole === RolEnum.ADMIN" [value]="currentUser?.id">Mi mismo ({{ currentUser?.email }})</ion-select-option>
+                  <ion-select-option *ngFor="let user of usersForSelect" [value]="user.id">
+                    {{ user.name }} ({{ user.email }})
+                  </ion-select-option>
+                </ion-select>
+                <ion-note slot="error" *ngIf="reservationForm.get('userId')?.hasError('required')">Usuario es requerido para Coordinador.</ion-note>
+              </ion-item>
 
-      <ion-item class="dark:bg-kwd-darker">
-        <ion-input label="Hora de Fin (Calculada)" labelPlacement="stacked" formControlName="endTime" readonly class="dark:text-kwd-light"></ion-input>
-      </ion-item>
+              <ion-item class="ion-no-padding ion-margin-top" *ngIf="userRole === RolEnum.ADMIN">
+                <ion-select
+                  label="Estado de la Reserva"
+                  labelPlacement="floating"
+                  formControlName="status"
+                  placeholder="Selecciona un estado"
+                  fill="outline"
+                >
+                  <ion-select-option [value]="ReservationStatusEnum.PENDIENTE">Pendiente</ion-select-option>
+                  <ion-select-option [value]="ReservationStatusEnum.CONFIRMADA">Confirmada</ion-select-option>
+                  <ion-select-option [value]="ReservationStatusEnum.RECHAZADA">Rechazada</ion-select-option>
+                  <ion-select-option [value]="ReservationStatusEnum.CANCELADA">Cancelada</ion-select-option>
+                </ion-select>
+              </ion-item>
 
-      <ion-item *ngIf="userRole === RolEnum.ADMIN || userRole === RolEnum.COORDINADOR" class="dark:bg-kwd-darker">
-        <ion-select label="Asignar a Usuario" labelPlacement="stacked" formControlName="userId" interface="popover" placeholder="Selecciona un usuario (opcional)" class="dark:text-kwd-light">
-          <ion-select-option *ngIf="usersForSelect.length === 0" [value]="null" disabled>
-            No hay usuarios disponibles
-          </ion-select-option>
-          <ion-select-option *ngFor="let user of usersForSelect" [value]="user.id">
-            {{ user.name }} ({{ user.email }})
-          </ion-select-option>
-        </ion-select>
-        <ion-note slot="error" *ngIf="reservationForm.get('userId')?.invalid && reservationForm.get('userId')?.touched">
-          Este campo es requerido para Coordinadores en nueva reserva.
-        </ion-note>
-      </ion-item>
-
-      <ion-item *ngIf="userRole === RolEnum.ADMIN || userRole === RolEnum.COORDINADOR" class="dark:bg-kwd-darker">
-        <ion-select label="Estado" labelPlacement="stacked" formControlName="status" interface="popover" placeholder="Selecciona el estado" class="dark:text-kwd-light">
-          <ion-select-option [value]="ReservationStatusEnum.PENDIENTE">Pendiente</ion-select-option>
-          <ion-select-option [value]="ReservationStatusEnum.CONFIRMADA">Confirmada</ion-select-option>
-          <ion-select-option [value]="ReservationStatusEnum.RECHAZADA">Rechazada</ion-select-option>
-          <ion-select-option [value]="ReservationStatusEnum.CANCELADA">Cancelada</ion-select-option>
-        </ion-select>
-      </ion-item>
-
-    </ion-list>
-
-    <div class="ion-padding-vertical flex justify-end space-x-3">
-      <ion-button color="light" (click)="cancel()" [disabled]="isLoading" class="rounded-md">
-        Cancelar
-      </ion-button>
-      <ion-button type="submit" color="primary" [disabled]="reservationForm.invalid || isLoading" class="rounded-md">
-        <ion-spinner *ngIf="isLoading" name="lines-sharp" class="w-4 h-4 mr-2"></ion-spinner>
-        {{ isEditMode ? 'Guardar Cambios' : 'Crear Reserva' }}
-      </ion-button>
-    </div>
-  </form>
+              <ion-button expand="block" type="submit" class="ion-margin-top" [disabled]="isLoading">
+                <ion-spinner *ngIf="isLoading" name="crescent"></ion-spinner>
+                {{ isEditMode ? 'Actualizar Reserva' : 'Crear Reserva' }}
+              </ion-button>
+            </form>
+          </ion-card-content>
+        </ion-card>
+      </ion-col>
+    </ion-row>
+  </ion-grid>
 </ion-content>

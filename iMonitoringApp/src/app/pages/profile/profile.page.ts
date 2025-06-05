@@ -38,10 +38,10 @@ export class ProfilePage implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    this.authService.getCurrentUser().pipe(
+    this.authService.currentUser.pipe(
       takeUntil(this.destroy$),
-      filter(user => user !== null)
-    ).subscribe(user => {
+      filter((user: User | null) => user !== null) 
+    ).subscribe((user: User) => { 
       this.currentUser = user;
       this.initProfileForm();
     });
@@ -146,7 +146,7 @@ export class ProfilePage implements OnInit, OnDestroy {
     await loading.present();
 
     const passwordData = {
-        oldPassword: this.changePasswordForm.value.oldPassword,
+        currentPassword: this.changePasswordForm.value.oldPassword,
         newPassword: this.changePasswordForm.value.newPassword
     };
 
@@ -230,8 +230,6 @@ export class ProfilePage implements OnInit, OnDestroy {
   }
 
   goBack() {
-
-    this.navCtrl.back({ animated: true, animationDirection: 'back' });
-
+    this.navCtrl.back(); 
   }
 }

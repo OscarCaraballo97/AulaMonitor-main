@@ -19,8 +19,8 @@ import { HttpErrorResponse } from '@angular/common/http';
   standalone: true,
   imports: [
     IonicModule,
-    CommonModule, 
-    ReactiveFormsModule, 
+    CommonModule,
+    ReactiveFormsModule,
     RouterModule
   ],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -49,7 +49,7 @@ export class BuildingFormPage implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    this.isLoadingInitialData = true; 
+    this.isLoadingInitialData = true;
     this.cdr.detectChanges();
 
     this.buildingForm = this.fb.group({
@@ -57,9 +57,9 @@ export class BuildingFormPage implements OnInit, OnDestroy {
       location: ['', [Validators.required, Validators.minLength(3)]]
     });
 
-    this.authService.getCurrentUserRole().pipe(
+    this.authService.currentUserRole.pipe(
       takeUntil(this.destroy$),
-      tap(role => {
+      tap((role: Rol | null) => { 
         this.userRole = role;
         if (this.userRole !== Rol.ADMIN) {
           this.presentToast('Acceso denegado. Solo los administradores pueden gestionar edificios.', 'danger');
@@ -98,7 +98,7 @@ export class BuildingFormPage implements OnInit, OnDestroy {
 
   async loadBuildingData(id: string) {
     this.isLoading = true;
-    this.isLoadingInitialData = true; 
+    this.isLoadingInitialData = true;
     const loading = await this.loadingCtrl.create({ message: 'Cargando datos del edificio...' });
     await loading.present();
 
@@ -106,7 +106,7 @@ export class BuildingFormPage implements OnInit, OnDestroy {
       takeUntil(this.destroy$),
       finalize(async () => {
         this.isLoading = false;
-        this.isLoadingInitialData = false; 
+        this.isLoadingInitialData = false;
         await loading.dismiss();
         this.cdr.detectChanges();
       })
@@ -141,7 +141,7 @@ export class BuildingFormPage implements OnInit, OnDestroy {
 
     if (this.isEditMode && this.buildingId) {
       buildingData = {
-        id: this.buildingId, 
+        id: this.buildingId,
         name: formValue.name,
         location: formValue.location
       };
@@ -157,7 +157,7 @@ export class BuildingFormPage implements OnInit, OnDestroy {
         buildingData = {
           name: formValue.name,
           location: formValue.location
-        } as BuildingDTO; 
+        } as BuildingDTO;
       }
     }
 
@@ -167,7 +167,7 @@ export class BuildingFormPage implements OnInit, OnDestroy {
       operation = this.buildingService.updateBuilding(this.buildingId, buildingData);
     } else {
 
-      operation = this.buildingService.createBuilding(formValue as BuildingDTO); 
+      operation = this.buildingService.createBuilding(formValue as BuildingDTO);
     }
 
     operation.pipe(

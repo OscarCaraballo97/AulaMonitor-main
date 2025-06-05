@@ -20,11 +20,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
-
-import java.net.URI;
 import java.time.Instant;
-import java.util.List;
 
 class UpdateStatusRequest {
     private ReservationStatus status;
@@ -119,11 +115,6 @@ public class ReservationController {
         User currentAppUser = getCurrentUserEntity(currentUserDetails);
         ReservationResponseDTO createdReservationDTO = reservationService.createReservation(reservationRequestDTO, currentAppUser);
 
-        URI location = ServletUriComponentsBuilder
-                .fromCurrentRequest()
-                .path("/{id}")
-                .buildAndExpand(createdReservationDTO.getId())
-                .toUri();
         return ResponseEntity.status(HttpStatus.CREATED).body(createdReservationDTO);
     }
 

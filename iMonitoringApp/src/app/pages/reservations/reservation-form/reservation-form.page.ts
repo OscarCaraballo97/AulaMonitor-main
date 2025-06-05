@@ -31,7 +31,7 @@ export class ReservationFormPage implements OnInit, OnDestroy {
   reservationId: string | null = null;
   pageTitle = 'Nueva Reserva';
   classrooms: Classroom[] = [];
-  usersForSelect: User[] = []; 
+  usersForSelect: User[] = [];
   currentUser: User | null = null;
   userRole: Rol | null = null;
   isLoading = false;
@@ -79,8 +79,8 @@ export class ReservationFormPage implements OnInit, OnDestroy {
 
   ngOnInit() {
     console.log("ReservationFormPage: ngOnInit - START");
-    this.isLoadingInitialData = true; 
-    this.cdr.detectChanges(); 
+    this.isLoadingInitialData = true;
+    this.cdr.detectChanges();
 
     this.reservationForm = this.fb.group({
       purpose: ['', [Validators.required, Validators.minLength(5)]],
@@ -89,8 +89,8 @@ export class ReservationFormPage implements OnInit, OnDestroy {
       startTime: ['', Validators.required],
       endTime: [{ value: null, disabled: true }, Validators.required],
       durationBlocks: [1, [Validators.required, Validators.min(1)]],
-      userId: [null], 
-      status: [ReservationStatus.PENDIENTE] 
+      userId: [null],
+      status: [ReservationStatus.PENDIENTE]
     });
 
     this.setupDateAndTimeListeners();
@@ -112,14 +112,14 @@ export class ReservationFormPage implements OnInit, OnDestroy {
         this.reservationForm.get('startTime')?.setValue(null, { emitEvent: false });
         this.reservationForm.get('endTime')?.setValue(null, { emitEvent: false });
         this.availableStartTimes = [];
-        this.selectableDates = this.generateSelectableDates(); 
+        this.selectableDates = this.generateSelectableDates();
         this.cdr.detectChanges();
       })
     ).subscribe();
 
     this.reservationForm.get('reservationDateControl')?.valueChanges.pipe(
       takeUntil(this.destroy$),
-      filter((date: string) => !!date && !!this.reservationForm.get('classroomId')?.value),
+      filter((date: string | null) => !!date && !!this.reservationForm.get('classroomId')?.value),
       tap(() => {
         console.log("Reservation date changed. Regenerating start times.");
         this.reservationForm.get('startTime')?.setValue(null, { emitEvent: false });
@@ -143,7 +143,7 @@ export class ReservationFormPage implements OnInit, OnDestroy {
 
     this.reservationForm.get('durationBlocks')?.valueChanges.pipe(
       takeUntil(this.destroy$),
-      filter((duration: number) => !!duration && !!this.reservationForm.get('startTime')?.value),
+      filter((duration: number | null) => !!duration && !!this.reservationForm.get('startTime')?.value),
       tap(() => {
         console.log("Duration changed. Recalculating end time.");
         this.calculateEndTime();
@@ -156,7 +156,7 @@ export class ReservationFormPage implements OnInit, OnDestroy {
   generateSelectableDates(): { value: string, display: string }[] {
     const dates: { value: string, display: string }[] = [];
     const today = new Date();
-    today.setHours(0, 0, 0, 0); 
+    today.setHours(0, 0, 0, 0);
 
     for (let i = 0; i < 30; i++) {
       const date = new Date(today);
@@ -168,7 +168,7 @@ export class ReservationFormPage implements OnInit, OnDestroy {
       }
 
       dates.push({
-        value: formatDate(date, 'yyyy-MM-dd', 'en-US'), 
+        value: formatDate(date, 'yyyy-MM-dd', 'en-US'),
         display: this.datePipe.transform(date, 'fullDate', undefined, 'es-CO') || date.toDateString()
       });
     }
@@ -195,7 +195,7 @@ export class ReservationFormPage implements OnInit, OnDestroy {
     const selectedDateLocal = new Date(dateISO);
     selectedDateLocal.setHours(0, 0, 0, 0);
 
-    const dayStartISO = selectedDateLocal.toISOString(); 
+    const dayStartISO = selectedDateLocal.toISOString();
     const dayEnd = new Date(selectedDateLocal);
     dayEnd.setHours(23, 59, 59, 999);
     const dayEndISO = dayEnd.toISOString();
@@ -210,7 +210,7 @@ export class ReservationFormPage implements OnInit, OnDestroy {
       console.log("Reservations for the day fetched:", reservationsForDay);
 
       const occupiedSlots: { start: Date, end: Date }[] = reservationsForDay
-        .filter((res: Reservation) => res.status === ReservationStatus.CONFIRMADA || res.status === ReservationStatus.PENDIENTE)
+        .filter((res: Reservation) => res.status === ReservationStatus.PENDIENTE || res.status === ReservationStatus.CONFIRMADA)
         .map((res: Reservation) => ({
          
           start: new Date(res.startTime),
@@ -219,9 +219,9 @@ export class ReservationFormPage implements OnInit, OnDestroy {
       console.log("Occupied slots (converted to local Dates):", occupiedSlots);
 
       const slots: { value: string, display: string }[] = [];
-      const currentMoment = new Date(); 
+      const currentMoment = new Date();
       const todayLocalMidnight = new Date();
-      todayLocalMidnight.setHours(0, 0, 0, 0); 
+      todayLocalMidnight.setHours(0, 0, 0, 0);
 
       const isSelectedDateToday = selectedDateLocal.getTime() === todayLocalMidnight.getTime();
 
@@ -229,7 +229,7 @@ export class ReservationFormPage implements OnInit, OnDestroy {
       let closingHour = 22;
 
       const dayOfWeek = selectedDateLocal.getDay();
-      if (dayOfWeek === 6) { 
+      if (dayOfWeek === 6) {
         closingHour = 12;
       }
 
@@ -265,7 +265,7 @@ export class ReservationFormPage implements OnInit, OnDestroy {
 
           if (isAvailable) {
             slots.push({
-              value: potentialSlotStart.toISOString(), 
+              value: potentialSlotStart.toISOString(),
               display: this.datePipe.transform(potentialSlotStart, 'shortTime', 'America/Bogota', 'es-CO') || ''
             });
           }
@@ -279,7 +279,7 @@ export class ReservationFormPage implements OnInit, OnDestroy {
       this.availableStartTimes = [];
     } finally {
       this.isLoadingTimes = false;
-      this.cdr.detectChanges(); 
+      this.cdr.detectChanges();
     }
   }
 
@@ -288,9 +288,9 @@ export class ReservationFormPage implements OnInit, OnDestroy {
     const durationBlocks = this.reservationForm.get('durationBlocks')?.value;
 
     if (startTimeISO && durationBlocks) {
-      const startTime = new Date(startTimeISO); 
+      const startTime = new Date(startTimeISO);
       const endTime = new Date(startTime.getTime() + durationBlocks * 45 * 60 * 1000);
-      this.reservationForm.get('endTime')?.setValue(endTime.toISOString()); 
+      this.reservationForm.get('endTime')?.setValue(endTime.toISOString());
       console.log(`Calculated endTime: ${this.datePipe.transform(endTime, 'shortTime', 'America/Bogota', 'es-CO')} for startTime: ${this.datePipe.transform(startTime, 'shortTime', 'America/Bogota', 'es-CO')} and duration: ${durationBlocks} blocks`);
     } else {
       this.reservationForm.get('endTime')?.setValue(null);
@@ -363,7 +363,7 @@ export class ReservationFormPage implements OnInit, OnDestroy {
         if (queryClassroomId && queryStartTime && queryEndTime) {
           console.log("Query parameters found. Patching form values. Classroom ID:", queryClassroomId, "Start:", queryStartTime, "End:", queryEndTime);
           const startTimeDate = new Date(queryStartTime);
-          const dateOnly = formatDate(startTimeDate, 'yyyy-MM-dd', 'en-US'); 
+          const dateOnly = formatDate(startTimeDate, 'yyyy-MM-dd', 'en-US');
           const duration = Math.round((new Date(queryEndTime).getTime() - startTimeDate.getTime()) / (45 * 60 * 1000));
 
           this.reservationForm.patchValue({
@@ -397,7 +397,8 @@ export class ReservationFormPage implements OnInit, OnDestroy {
       if (this.userRole === Rol.ADMIN) {
         this.loadUsersForSelect([Rol.ADMIN, Rol.COORDINADOR, Rol.PROFESOR, Rol.ESTUDIANTE, Rol.TUTOR]);
       } else if (this.userRole === Rol.COORDINADOR) {
-        this.loadUsersForSelect([Rol.PROFESOR, Rol.ESTUDIANTE, Rol.TUTOR]);
+     
+      this.loadUsersForSelect([Rol.PROFESOR, Rol.ESTUDIANTE, Rol.TUTOR]);
       }
 
      
@@ -414,8 +415,8 @@ export class ReservationFormPage implements OnInit, OnDestroy {
 
       userIdControl?.disable({ emitEvent: false });
       userIdControl?.patchValue(this.currentUser?.id, { emitEvent: false });
-      statusControl?.disable({ emitEvent: false }); 
-      userIdControl?.clearValidators(); 
+      statusControl?.disable({ emitEvent: false });
+      userIdControl?.clearValidators();
       userIdControl?.updateValueAndValidity();
       console.log("Role is not ADMIN/COORDINADOR. userId/status controls disabled, userId set to current user.");
     }
@@ -437,7 +438,7 @@ export class ReservationFormPage implements OnInit, OnDestroy {
 
   async loadReservationData(id: string) {
     this.isLoading = true;
-    this.cdr.detectChanges();
+    this.isLoadingInitialData = true;
     const loading = await this.loadingCtrl.create({ message: 'Cargando reserva...' });
     await loading.present();
 
@@ -445,8 +446,10 @@ export class ReservationFormPage implements OnInit, OnDestroy {
       takeUntil(this.destroy$),
       finalize(async () => {
         this.isLoading = false;
+        this.isLoadingInitialData = false;
         await loading.dismiss();
         this.cdr.detectChanges();
+        console.log("ReservationFormPage: loadReservationData finalizado.");
       })
     ).subscribe({
       next: async (reservation: Reservation) => {
@@ -458,7 +461,7 @@ export class ReservationFormPage implements OnInit, OnDestroy {
         }
 
         const startTimeDate = new Date(reservation.startTime);
-        const dateOnly = formatDate(startTimeDate, 'yyyy-MM-dd', 'en-US'); 
+        const dateOnly = formatDate(startTimeDate, 'yyyy-MM-dd', 'en-US');
         const durationBlocks = Math.round((new Date(reservation.endTime).getTime() - startTimeDate.getTime()) / (45 * 60 * 1000));
 
         this.reservationForm.patchValue({
@@ -466,17 +469,17 @@ export class ReservationFormPage implements OnInit, OnDestroy {
           classroomId: reservation.classroom?.id,
           reservationDateControl: dateOnly,
           startTime: reservation.startTime,
-          endTime: reservation.endTime,
+          endTime: reservation.endTime, 
           durationBlocks: durationBlocks > 0 ? durationBlocks : 1,
           userId: reservation.user?.id,
           status: reservation.status
         });
         console.log("Form patched with reservation data.");
 
-        if (this.userRole !== Rol.ADMIN) { 
+        if (this.userRole !== Rol.ADMIN) {
           if (this.userRole === Rol.COORDINADOR) {
             if (reservation.user?.id === this.currentUser?.id && reservation.status !== ReservationStatus.PENDIENTE) {
-              this.reservationForm.disable(); 
+              this.reservationForm.disable();
               this.presentToast('Tu reserva no es editable en este estado.', 'warning');
               console.log("Coordinator's own reservation (not PENDING) disabled.");
             } else if (reservation.user?.role === Rol.ESTUDIANTE) {
@@ -562,8 +565,8 @@ export class ReservationFormPage implements OnInit, OnDestroy {
       classroomId: formValue.classroomId,
       startTime: startTimeISO,
       endTime: endTimeISO,
-      userId: formValue.userId, 
-      status: formValue.status 
+      userId: formValue.userId,
+      status: formValue.status
     };
 
    
@@ -576,7 +579,7 @@ export class ReservationFormPage implements OnInit, OnDestroy {
 
         console.log("Coordinator in edit mode: userId and status kept in payload, backend will validate.");
       }
-    } else { 
+    } else {
         if (this.userRole !== Rol.ADMIN && this.userRole !== Rol.COORDINADOR) {
             
             reservationData.userId = this.currentUser?.id;

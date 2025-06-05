@@ -38,9 +38,9 @@ export class BuildingListPage implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
-    this.authService.getCurrentUserRole()
+    this.authService.currentUserRole
       .pipe(takeUntil(this.destroy$))
-      .subscribe((role: Rol | null) => {
+      .subscribe((role: Rol | null) => { 
         this.userRole = role;
         this.cdr.detectChanges();
       });
