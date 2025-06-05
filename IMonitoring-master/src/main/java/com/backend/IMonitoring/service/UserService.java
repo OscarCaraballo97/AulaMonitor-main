@@ -229,7 +229,7 @@ public class UserService {
 
     public Page<ReservationResponseDTO> getReservationsByUserIdDTO(String userId) {
         getUserById(userId);
-        // Added page and size parameters as per the updated ReservationService.getAllReservations signature
+       
         return reservationService.getAllReservations(null, userId, null, null, null, "startTime", "desc", 0, 100);
     }
 

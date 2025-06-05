@@ -163,7 +163,7 @@ public class ReservationController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("isAuthenticated()") // Updated PreAuthorize for DELETE
+    @PreAuthorize("isAuthenticated()") 
     public ResponseEntity<Void> deleteReservation(
             @PathVariable String id,
             @AuthenticationPrincipal UserDetailsImpl currentUserDetails) {
