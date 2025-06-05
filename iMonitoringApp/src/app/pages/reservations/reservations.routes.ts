@@ -1,6 +1,6 @@
 import { Routes } from '@angular/router';
 import { ReservationListPage } from './reservation-list/reservation-list.page';
-import { ReservationFormPage } from './reservation-form/reservation-form.page'; 
+import { ReservationFormPage } from './reservation-form/reservation-form.page';
 import { inject } from '@angular/core';
 import { AuthService } from '../../services/auth.service';
 import { Rol } from '../../models/rol.model';
@@ -11,30 +11,30 @@ const canCreateOrEditReservations = () => inject(AuthService).hasAnyRole([Rol.AD
 export const RESERVATIONS_ROUTES: Routes = [
   {
     path: '',
-    redirectTo: 'my-list', 
+    redirectTo: 'my-list',
     pathMatch: 'full',
   },
   {
     path: 'list', 
-    component: ReservationListPage, 
-    canActivate: [canAccessAllReservations], 
+    component: ReservationListPage,
+    canActivate: [canAccessAllReservations],
     data: { title: 'Todas las Reservas' }
   },
   {
     path: 'my-list',
-    component: ReservationListPage, 
-    data: { title: 'Mis Reservas' } 
+    component: ReservationListPage,
+    data: { title: 'Mis Reservas' }
   },
   {
     path: 'new',
-    component: ReservationFormPage, 
+    component: ReservationFormPage,
     canActivate: [canCreateOrEditReservations],
     data: { title: 'Nueva Reserva' }
   },
   {
     path: 'edit/:id',
-    component: ReservationFormPage, 
-    canActivate: [canCreateOrEditReservations], 
+    component: ReservationFormPage,
+    canActivate: [canCreateOrEditReservations],
     data: { title: 'Editar Reserva' }
   },
 ];

@@ -1,215 +1,258 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule, DatePipe, formatDate } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { IonicModule, LoadingController, NavController, ToastController, AlertController } from '@ionic/angular'; 
 import { Router, RouterModule } from '@angular/router';
-import { AlertController, IonContent, ToastController } from '@ionic/angular/standalone';
-import { Subject, forkJoin, of, Observable } from 'rxjs';
-import { takeUntil, catchError, finalize, map } from 'rxjs/operators';
+import { Subject, forkJoin, of, Observable } from 'rxjs'; 
+import { takeUntil, finalize, catchError, map } from 'rxjs/operators';
 import { AuthService, AuthData } from '../../services/auth.service';
-import { ReservationService, ReservationListFilters } from '../../services/reservation.service'; 
-import { ClassroomAvailabilitySummaryDTO, ClassroomService } from '../../services/classroom.service';
-import { BuildingService } from '../../services/building.service';
+import { ReservationService, PaginatedReservations } from '../../services/reservation.service'; 
 import { UserService } from '../../services/user.service';
 import { User } from '../../models/user.model';
 import { Rol } from '../../models/rol.model';
 import { Reservation, ReservationStatus } from '../../models/reservation.model';
+import { BuildingService } from '../../services/building.service';
+import { ClassroomService } from '../../services/classroom.service';
+import { Building } from '../../models/building.model';
+import { Classroom } from '../../models/classroom.model';
 import { ClassroomType as ReservationClassroomTypeEnum } from '../../models/classroom-type.enum';
-import { Classroom } from '../../models/classroom.model'; 
-
-import {
-  IonHeader, IonToolbar, IonButtons, IonMenuButton, IonTitle,
-  IonRefresher, IonRefresherContent, IonSpinner, IonList, IonItem, IonLabel, IonBadge,
-  IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonIcon, IonButton
-} from '@ionic/angular/standalone';
 
 @Component({
   selector: 'app-dashboard',
   templateUrl: './dashboard.page.html',
   styleUrls: ['./dashboard.page.scss'],
   standalone: true,
-  imports: [
-    CommonModule,
-    RouterModule,
-    FormsModule,
-    IonHeader, IonToolbar, IonButtons, IonMenuButton, IonTitle, IonContent, IonButton, IonIcon,
-    IonRefresher, IonRefresherContent, IonSpinner, IonList, IonItem, IonLabel, IonBadge,
-    IonCard, IonCardHeader, IonCardTitle, IonCardContent
-  ],
-  providers: [DatePipe]
+  imports: [IonicModule, CommonModule, RouterModule],
+  providers: [DatePipe] 
 })
 export class DashboardPage implements OnInit, OnDestroy {
-  @ViewChild(IonContent) content!: IonContent;
-  private destroy$ = new Subject<void>();
-
   currentUser: User | null = null;
   userRole: Rol | null = null;
-  public RolEnum = Rol;
-  public ReservationClassroomTypeEnum = ReservationClassroomTypeEnum;
-  public ReservationStatusEnum = ReservationStatus;
+  RolEnum = Rol;
+  ReservationStatusEnum = ReservationStatus;
+  ReservationClassroomTypeEnum = ReservationClassroomTypeEnum;
 
-  totalBuildings: number = 0;
-  totalClassrooms: number = 0;
-  totalUsers: number = 0;
-  pendingReservationsCount: number = 0;
-  classroomAvailabilitySummary: ClassroomAvailabilitySummaryDTO | null = null;
+  totalUsers = 0;
+  totalBuildings = 0;
+  totalClassrooms = 0;
+  totalReservations = 0;
+  pendingReservationsCount = 0;
+  upcomingReservationsCount = 0;
+  myRecentReservations: Reservation[] = [];
   upcomingReservations: Reservation[] = [];
-  isLoading: boolean = true;
-  showMyReservationsSection: boolean = true; 
-  isLoadingUpcomingReservations: boolean = false;
-  greetings: string = '';
+  isLoading = false;
   errorMessage: string | null = null;
+
+  showMyReservationsSection: boolean = true; 
+  isLoadingUpcomingReservations: boolean = false; 
+  classroomAvailabilitySummary: { availableNow: number; total: number; } | null = null; 
+
+
+  private destroy$ = new Subject<void>();
 
   constructor(
     private authService: AuthService,
     private reservationService: ReservationService,
-    private classroomService: ClassroomService,
-    private buildingService: BuildingService,
     private userService: UserService,
-    private alertCtrl: AlertController,
+    private buildingService: BuildingService,
+    private classroomService: ClassroomService,
+    private loadingCtrl: LoadingController,
+    private navCtrl: NavController,
     private toastCtrl: ToastController,
     private cdr: ChangeDetectorRef,
     private router: Router,
-    public datePipe: DatePipe 
-  ) {
-    this.setGreeting();
-  }
+    public datePipe: DatePipe, 
+    private alertCtrl: AlertController
+  ) {}
 
   ngOnInit() {
-    this.isLoading = true;
-    this.authService.getCurrentUserWithRole().pipe(
-      takeUntil(this.destroy$)
-    ).subscribe((authData: AuthData | null) => {
-      if (authData?.user && authData?.role) {
-        this.currentUser = authData.user;
-        this.userRole = authData.role;
-        this.loadDashboardData();
-      } else {
-        this.isLoading = false; 
-        this.currentUser = null; 
-        this.userRole = null;
+    this.authService.getCurrentUserWithRole().pipe(takeUntil(this.destroy$)).subscribe(
+      (authData: AuthData | null) => {
+        if (authData?.user && authData?.role) {
+          this.currentUser = authData.user;
+          this.userRole = authData.role;
+          this.loadDashboardData();
+        } else {
+          this.presentToast('No se pudo obtener la información del usuario. Redirigiendo a login.', 'danger');
+          this.navCtrl.navigateRoot('/login');
+        }
+        this.cdr.detectChanges();
       }
-      this.cdr.detectChanges();
+    );
+  }
+
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  get greetings(): string {
+    const hour = new Date().getHours();
+    if (hour < 12) {
+      return 'Buenos días';
+    } else if (hour < 18) {
+      return 'Buenas tardes';
+    } else {
+      return 'Buenas noches';
+    }
+  }
+
+  handleRefresh(event?: any) {
+    console.log('Refresh initiated.');
+    this.errorMessage = null;
+    this.loadDashboardData().finally(() => {
+      if (event && event.target && typeof event.target.complete === 'function') {
+        event.target.complete();
+      }
     });
   }
 
-  ionViewWillEnter() {
-    if (this.currentUser && this.userRole) {
-        if (!this.isLoading) { 
-             this.loadDashboardData(true); 
-        }
-    }
-    this.setGreeting();
-  }
-
-  setGreeting() {
-    const hour = new Date().getHours();
-    if (hour < 12) this.greetings = 'Buenos días';
-    else if (hour < 18) this.greetings = 'Buenas tardes';
-    else this.greetings = 'Buenas noches';
-  }
-
-  async loadDashboardData(isRefresh: boolean = false) {
-    if (!this.currentUser || !this.userRole) {
-      if (!isRefresh) this.isLoading = false;
-      this.cdr.detectChanges();
-      return;
-    }
-
-    if (!isRefresh) {
-        this.isLoading = true;
-    }
-    this.errorMessage = null;
-    this.cdr.detectChanges();
+  async loadDashboardData() {
+    this.isLoading = true;
+    this.isLoadingUpcomingReservations = true;
+    const loading = await this.loadingCtrl.create({
+      message: 'Cargando datos del panel...',
+    });
+    await loading.present();
 
     const observablesMap: { [key: string]: Observable<any> } = {};
 
-    this.isLoadingUpcomingReservations = true;
-    observablesMap['upcoming'] = this.reservationService.getMyUpcomingReservations(5).pipe(
-      finalize(() => {
-        this.isLoadingUpcomingReservations = false;
-      }),
-      catchError(() => {
-        console.error('Error al cargar próximas reservas');
-        return of([] as Reservation[]);
-      })
+    observablesMap['myRecentReservations'] = this.reservationService.getMyReservations(
+      'startTime', 
+      'desc',      
+      0,           
+      5,           
+      undefined,   
+      false        
+    ).pipe(
+        map((pageResponse: PaginatedReservations) => pageResponse.content), 
+        catchError(err => {
+            console.error('Error loading my recent reservations:', err);
+            this.presentToast('Error al cargar mis reservas recientes.', 'danger');
+            return of([]); 
+        })
     );
 
+
+    observablesMap['upcomingReservationsList'] = this.reservationService.getMyReservations(
+      'startTime', 
+      'asc',       
+      0,           
+      5,           
+      undefined,   
+      true    
+    ).pipe(
+        map((pageResponse: PaginatedReservations) => pageResponse.content), 
+        catchError(err => {
+            console.error('Error loading upcoming reservations list:', err);
+            return of([]);
+        }),
+        finalize(() => {
+          this.isLoadingUpcomingReservations = false;
+          this.cdr.detectChanges();
+        })
+    );
+
+
     if (this.userRole === Rol.ADMIN || this.userRole === Rol.COORDINADOR) {
-      observablesMap['buildingsCount'] = this.buildingService.getAllBuildings().pipe(map(b => b.length), catchError(() => of(0)));
-      
- 
-      observablesMap['classroomsCount'] = this.classroomService.getAllClassrooms().pipe(
-        map((c: Classroom[]) => c.length), 
-        catchError(() => of(0))
-      ); 
-      
-      observablesMap['availabilitySummary'] = this.classroomService.getAvailabilitySummary().pipe(catchError(() => of(null)));
-      
-      const pendingFilters: ReservationListFilters = { status: ReservationStatus.PENDIENTE, sortField: 'startTime', sortDirection: 'desc' };
-      observablesMap['pendingReservationsCount'] = this.reservationService.getAllReservations(pendingFilters).pipe(
-        map((r: Reservation[]) => r.length), 
-        catchError(() => of(0))
+      observablesMap['pendingReservations'] = this.reservationService.getAllReservations({ status: ReservationStatus.PENDIENTE, page: 0, size: 1 }).pipe( 
+        map((pageResponse: PaginatedReservations) => pageResponse.totalElements), 
+        catchError(err => {
+            console.error('Error loading pending reservations count:', err);
+            return of(0); 
+        })
       );
-      
-      if (this.userRole === Rol.ADMIN) {
-        observablesMap['usersCount'] = this.userService.getAllUsers().pipe(map(u => u.length), catchError(() => of(0)));
-      }
+      observablesMap['totalReservations'] = this.reservationService.getAllReservations({ page: 0, size: 1 }).pipe( 
+        map((pageResponse: PaginatedReservations) => pageResponse.totalElements),
+        catchError(err => {
+            console.error('Error loading total reservations count:', err);
+            return of(0);
+        })
+      );
+      observablesMap['allUsers'] = this.userService.getAllUsers().pipe(
+        map(users => users.length),
+        catchError(err => {
+            console.error('Error loading total users count:', err);
+            return of(0); 
+        })
+      );
+      observablesMap['allBuildings'] = this.buildingService.getAllBuildings().pipe(
+        map(buildings => buildings.length),
+        catchError(err => {
+            console.error('Error loading total buildings count:', err);
+            return of(0);
+        })
+      );
+      observablesMap['allClassrooms'] = this.classroomService.getAllClassrooms().pipe(
+        map(classrooms => classrooms.length),
+        catchError(err => {
+            console.error('Error loading total classrooms count:', err);
+            return of(0); 
+        })
+      );
+
+      observablesMap['classroomAvailabilitySummary'] = of({ availableNow: 5, total: 10 }).pipe( // Dummy data
+
+      );
     }
 
     forkJoin(observablesMap).pipe(
       takeUntil(this.destroy$),
       finalize(async () => {
         this.isLoading = false;
+        await loading.dismiss();
         this.cdr.detectChanges();
       })
     ).subscribe({
-      next: (data: any) => {
-        this.upcomingReservations = data['upcoming'] || [];
+      next: (results: any) => {
+        this.myRecentReservations = results['myRecentReservations'] || [];
+        this.upcomingReservations = results['upcomingReservationsList'] || []; 
+        this.upcomingReservationsCount = this.upcomingReservations.length; 
+
         if (this.userRole === Rol.ADMIN || this.userRole === Rol.COORDINADOR) {
-          this.totalBuildings = data['buildingsCount'] ?? 0;
-          this.totalClassrooms = data['classroomsCount'] ?? 0;
-          this.classroomAvailabilitySummary = data['availabilitySummary'] || { availableNow: 0, occupiedNow: 0, total: 0 };
-          this.pendingReservationsCount = data['pendingReservationsCount'] ?? 0;
-          if (this.userRole === Rol.ADMIN) {
-            this.totalUsers = data['usersCount'] ?? 0;
-          }
+          this.pendingReservationsCount = results['pendingReservations'] || 0;
+          this.totalReservations = results['totalReservations'] || 0;
+          this.totalUsers = results['allUsers'] || 0;
+          this.totalBuildings = results['allBuildings'] || 0;
+          this.totalClassrooms = results['allClassrooms'] || 0;
+          this.classroomAvailabilitySummary = results['classroomAvailabilitySummary'];
         }
+        this.errorMessage = null;
         this.cdr.detectChanges();
       },
-      error: (err: Error) => {
-        console.error('Error cargando datos del dashboard:', err);
-        this.errorMessage = "No se pudieron cargar algunos datos del dashboard. Intenta de nuevo más tarde.";
-        this.isLoading = false;
-        this.isLoadingUpcomingReservations = false;
+      error: (err: any) => {
+        console.error('Dashboard data loading error:', err);
+        this.errorMessage = err.message || 'Error al cargar algunos datos del panel.';
+        this.presentToast(this.errorMessage ?? 'Ocurrió un error desconocido.', 'danger'); 
         this.cdr.detectChanges();
       }
     });
   }
 
-  navigateTo(route: string) { this.router.navigateByUrl(route); }
+  navigateTo(path: string) {
+    this.router.navigate([path]);
+  }
 
-  async handleRefresh(event?: any) {
-    await this.loadDashboardData(true);
-    if (event && event.target && typeof event.target.complete === 'function') {
-      event.target.complete();
-    }
+  toggleMyReservationsSection() {
+    this.showMyReservationsSection = !this.showMyReservationsSection;
+    this.cdr.detectChanges();
   }
 
   async viewReservationDetails(reservation: Reservation) {
-    if (!reservation || !reservation.id) {
+     if (!reservation || !reservation.id) {
       this.presentToast('No se pueden mostrar los detalles: reserva no válida.', 'warning');
       return;
     }
 
     const startTimeStr = reservation.startTime || '';
     const endTimeStr = reservation.endTime || '';
-    
+
     const startTimeForFormat = (startTimeStr && !startTimeStr.endsWith('Z')) ? startTimeStr + 'Z' : startTimeStr;
     const endTimeForFormat = (endTimeStr && !endTimeStr.endsWith('Z')) ? endTimeStr + 'Z' : endTimeStr;
 
-    const startTime = reservation.startTime ? formatDate(new Date(startTimeForFormat), 'dd/MM/yyyy, HH:mm', 'es-CO', 'America/Bogota') : 'N/A';
-    const endTime = reservation.endTime ? formatDate(new Date(endTimeForFormat), 'HH:mm', 'es-CO', 'America/Bogota') : 'N/A';
+    const startTime = reservation.startTime ? this.datePipe.transform(new Date(startTimeForFormat), 'dd/MM/yyyy, HH:mm', 'America/Bogota', 'es-CO') : 'N/A';
+    const endTime = reservation.endTime ? this.datePipe.transform(new Date(endTimeForFormat), 'HH:mm', 'America/Bogota', 'es-CO') : 'N/A';
     const statusDisplay = reservation.status ? (reservation.status as string).charAt(0).toUpperCase() + (reservation.status as string).slice(1).toLowerCase().replace('_', ' ') : 'N/A';
+
 
     const message = `<b>Motivo:</b> ${reservation.purpose || 'No especificado'}<br>` +
                    `<b>Aula:</b> ${reservation.classroom?.name || 'N/A'} (${reservation.classroom?.buildingName || 'N/A'})<br>` +
@@ -221,16 +264,16 @@ export class DashboardPage implements OnInit, OnDestroy {
 
     const alert = await this.alertCtrl.create({
       header: 'Detalles de la Reserva',
-      message: message, 
+      message: message,
       buttons: ['OK'],
-      mode: 'ios', 
-      cssClass: 'reservation-detail-alert' 
+      mode: 'ios',
+      cssClass: 'reservation-detail-alert'
     });
     await alert.present();
   }
 
-  getEventColor(status: ReservationStatus | undefined): string {
-    if (!status) return '#808080'; 
+  getEventColor(status?: ReservationStatus): string {
+    if (!status) return '#808080';
     switch (status) {
       case ReservationStatus.CONFIRMADA: return 'var(--ion-color-success, #2dd36f)';
       case ReservationStatus.PENDIENTE: return 'var(--ion-color-warning, #ffc409)';
@@ -239,28 +282,20 @@ export class DashboardPage implements OnInit, OnDestroy {
       default: return 'var(--ion-color-primary, #3880ff)';
     }
   }
-  
-  async presentToast(message: string, color: 'success' | 'danger' | 'warning', duration: number = 3000) {
-    const toast = await this.toastCtrl.create({ 
-        message, 
-        duration, 
-        color, 
-        position: 'top',
-        buttons: [{text:'OK',role:'cancel'}] 
-    });
-    toast.present();
-  }
 
-  toggleMyReservationsSection() { 
-    this.showMyReservationsSection = !this.showMyReservationsSection;
-  }
-
-  public doLogout() {
+  doLogout() {
+    console.log('DashboardPage - doLogout() method calling authService.logout()');
     this.authService.logout();
   }
 
-  ngOnDestroy() {
-    this.destroy$.next();
-    this.destroy$.complete();
+  async presentToast(message: string, color: 'success' | 'danger' | 'warning', duration: number = 3000) {
+    const toast = await this.toastCtrl.create({
+      message,
+      duration,
+      color,
+      position: 'top',
+      buttons: [{ text: 'OK', role: 'cancel' }]
+    });
+    await toast.present();
   }
 }

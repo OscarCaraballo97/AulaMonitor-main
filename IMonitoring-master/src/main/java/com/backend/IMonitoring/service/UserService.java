@@ -14,9 +14,10 @@ import com.backend.IMonitoring.exceptions.InvalidCredentialsException;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UsernameNotFoundException; 
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,7 +32,7 @@ public class UserService {
     private static final Logger logger = LoggerFactory.getLogger(UserService.class);
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
-    private final ReservationRepository reservationRepository; 
+    private final ReservationRepository reservationRepository;
     private final ReservationService reservationService;
 
     public List<User> getAllUsers() {
@@ -69,7 +70,7 @@ public class UserService {
         if (user.getPassword() == null || user.getPassword().isEmpty()) {
             throw new IllegalArgumentException("La contraseña es obligatoria para crear un nuevo usuario.");
         }
-        
+
         if (!user.getPassword().startsWith("$2a$") && !user.getPassword().startsWith("$2b$") && !user.getPassword().startsWith("$2y$")) {
             user.setPassword(passwordEncoder.encode(user.getPassword()));
         }
@@ -82,15 +83,15 @@ public class UserService {
             }
         } else if (performingUser.getRole() == Rol.ADMIN) {
             if (user.getRole() == null) {
-                user.setRole(Rol.ESTUDIANTE); 
+                user.setRole(Rol.ESTUDIANTE);
             }
         } else {
             throw new UnauthorizedAccessException("No tienes permiso para crear usuarios.");
         }
-        user.setEnabled(true); 
+        user.setEnabled(true);
         return userRepository.save(user);
     }
-    
+
     @Transactional
     public User createUser(UserDTO userDTO, User performingUser) {
         User user = userDTO.toEntity();
@@ -99,17 +100,17 @@ public class UserService {
 
     @Transactional
     public User updateUser(String id, UserDTO userDTO, User performingUser) {
-        User existingUser = getUserById(id); 
+        User existingUser = getUserById(id);
 
         boolean isPerformingAdmin = performingUser.getRole() == Rol.ADMIN;
         boolean isPerformingCoordinator = performingUser.getRole() == Rol.COORDINADOR;
         boolean isSelf = existingUser.getId().equals(performingUser.getId());
 
-        if (!isPerformingAdmin && !isSelf && 
+        if (!isPerformingAdmin && !isSelf &&
             !(isPerformingCoordinator && isUserManageableByCoordinator(existingUser.getRole()))) {
             throw new UnauthorizedAccessException("No tienes permiso para actualizar este usuario.");
         }
-        
+
         if (userDTO.getName() != null) {
             if(isSelf || isPerformingAdmin || (isPerformingCoordinator && isUserManageableByCoordinator(existingUser.getRole()))) {
                 existingUser.setName(userDTO.getName());
@@ -129,14 +130,14 @@ public class UserService {
                  throw new UnauthorizedAccessException("Un Coordinador no puede modificar el email de este tipo de usuario.");
             }
         }
-        
+
         if (userDTO.getAvatarUrl() != null) {
             if(isSelf || isPerformingAdmin || (isPerformingCoordinator && isUserManageableByCoordinator(existingUser.getRole()))) {
                 existingUser.setAvatarUrl(userDTO.getAvatarUrl().isEmpty() ? null : userDTO.getAvatarUrl());
             } else {
                 throw new UnauthorizedAccessException("Un Coordinador no puede modificar el avatar de este tipo de usuario.");
             }
-        } else if (userDTO.getAvatarUrl() == null && existingUser.getAvatarUrl() != null) { 
+        } else if (userDTO.getAvatarUrl() == null && existingUser.getAvatarUrl() != null) {
              if(isSelf || isPerformingAdmin || (isPerformingCoordinator && isUserManageableByCoordinator(existingUser.getRole()))) {
                 existingUser.setAvatarUrl(null);
             }
@@ -152,20 +153,19 @@ public class UserService {
                 if (!isUserManageableByCoordinator(existingUser.getRole()) || !isRoleAssignableByCoordinator(userDTO.getRole())) {
                     throw new UnauthorizedAccessException("Un Coordinador no puede asignar/cambiar a este rol o para este usuario.");
                 }
-                if (isSelf) { 
+                if (isSelf) {
                     throw new UnauthorizedAccessException("Un Coordinador no puede cambiar su propio rol.");
                 }
                 existingUser.setRole(userDTO.getRole());
-            } else { 
+            } else {
                 throw new UnauthorizedAccessException("No tienes permiso para cambiar el rol de este usuario.");
             }
         }
-        
-     
-            
+
+
         return userRepository.save(existingUser);
     }
-    
+
     private boolean isUserManageableByCoordinator(Rol userRole) {
         return userRole == Rol.ESTUDIANTE || userRole == Rol.PROFESOR || userRole == Rol.TUTOR;
     }
@@ -185,7 +185,7 @@ public class UserService {
             throw new UnauthorizedAccessException("No tienes permiso para cambiar la contraseña de este usuario.");
         }
 
-        if (isSelf) { 
+        if (isSelf) {
             if (currentPassword == null || currentPassword.isEmpty()){
                 throw new IllegalArgumentException("La contraseña actual es requerida para cambiar tu contraseña.");
             }
@@ -198,11 +198,11 @@ public class UserService {
     }
 
     @Transactional
-    public void deleteUser(String id, User performingUser) { 
+    public void deleteUser(String id, User performingUser) {
         User userToDelete = getUserById(id);
 
         boolean isAdmin = performingUser.getRole() == Rol.ADMIN;
-        
+
         if (isAdmin) {
             if (userToDelete.getId().equals(performingUser.getId())) {
                 throw new UnauthorizedAccessException("Un administrador no puede eliminarse a sí mismo.");
@@ -214,36 +214,37 @@ public class UserService {
             if (userToDelete.getId().equals(performingUser.getId())) {
                 throw new UnauthorizedAccessException("Un coordinador no puede eliminarse a sí mismo.");
             }
-        } else { 
+        } else {
             throw new UnauthorizedAccessException("No tienes permiso para eliminar este usuario.");
         }
 
         logger.info("Eliminando reservaciones para el usuario: {}", id);
         List<Reservation> userReservations = reservationRepository.findByUserId(id, Sort.unsorted());
         if (userReservations != null && !userReservations.isEmpty()) {
-            reservationRepository.deleteAll(userReservations); 
+            reservationRepository.deleteAll(userReservations);
             logger.info("Eliminadas {} reservaciones asociadas al usuario {}", userReservations.size(), id);
         }
         userRepository.delete(userToDelete);
     }
-    
-    public List<ReservationResponseDTO> getReservationsByUserIdDTO(String userId) {
+
+    public Page<ReservationResponseDTO> getReservationsByUserIdDTO(String userId) {
         getUserById(userId);
-        return reservationService.getAllReservations(null, userId, null, null, null, "startTime", "desc");
+        // Added page and size parameters as per the updated ReservationService.getAllReservations signature
+        return reservationService.getAllReservations(null, userId, null, null, null, "startTime", "desc", 0, 100);
     }
-    
+
     public User getCurrentAuthenticatedUser() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         if (principal instanceof UserDetailsImpl) {
             User user = ((UserDetailsImpl) principal).getUserEntity();
-             if (user == null) { 
+             if (user == null) {
                 return userRepository.findByEmail(((UserDetailsImpl) principal).getUsername())
                      .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado desde UserDetailsImpl fallback: " + ((UserDetailsImpl) principal).getUsername()));
             }
             return user;
-        } else if (principal instanceof org.springframework.security.core.userdetails.User) { 
+        } else if (principal instanceof org.springframework.security.core.userdetails.User) {
             String username = ((org.springframework.security.core.userdetails.User) principal).getUsername();
-            return userRepository.findByEmail(username) 
+            return userRepository.findByEmail(username)
                 .orElseThrow(() -> new UsernameNotFoundException("Usuario no encontrado desde principal estándar: " + username));
         } else if (principal instanceof String && "anonymousUser".equals(principal)) {
             throw new UnauthorizedAccessException("Usuario no autenticado (anónimo).");

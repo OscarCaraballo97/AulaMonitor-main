@@ -1,132 +1,167 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
-import { Observable, of, throwError } from 'rxjs';
+import { HttpClient, HttpParams, HttpErrorResponse } from '@angular/common/http';
+import { Observable, throwError } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { Reservation, ReservationCreationData, ReservationStatus } from '../models/reservation.model';
 
+export interface PaginatedReservations {
+  content: Reservation[]; 
+  pageable: {
+    sort: {
+      empty: boolean;
+      sorted: boolean;
+      unsorted: boolean;
+    };
+    offset: number;
+    pageNumber: number;
+    pageSize: number;
+    paged: boolean;
+    unpaged: boolean;
+  };
+  totalPages: number;
+  totalElements: number;
+  last: boolean;
+  size: number;
+  number: number; 
+  sort: {
+    empty: boolean;
+    sorted: boolean;
+    unsorted: boolean;
+  };
+  first: boolean;
+  numberOfElements: number;
+  empty: boolean;
+}
+
 export interface ReservationListFilters {
   classroomId?: string;
   userId?: string;
-  status?: ReservationStatus | 'ALL';
+  status?: ReservationStatus;
   startDate?: string; 
-  endDate?: string;   
+  endDate?: string;
   sortField?: string;
   sortDirection?: 'asc' | 'desc';
   page?: number;
   size?: number;
 }
 
-export interface PaginatedReservations { 
-  data: Reservation[];
-  totalPages: number;
-  totalItems?: number;   
-  currentPage?: number;  
-}
-
 @Injectable({
   providedIn: 'root'
 })
 export class ReservationService {
-  private apiUrl = `${environment.apiUrl}/reservations`;
+  private apiUrl = `${environment.apiUrl}/api/reservations`; 
 
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient) {}
 
-  private handleError<T>(operation = 'operation', result?: T) {
-    return (error: HttpErrorResponse): Observable<T> => {
-      console.error(`[ReservationService] ${operation} failed: Código ${error.status}, mensaje: ${error.message}`, error.error);
-      const errMsgFromServer = error.error?.message || error.error?.error || (typeof error.error === 'string' ? error.error : '');
-      const userMessage = `Error en ${operation.toLowerCase()}: ${errMsgFromServer || error.statusText || 'Error desconocido del servidor'}.`;
-      
-      if (result !== undefined) {
-        return of(result as T);
-      } else {
-        return throwError(() => new Error(userMessage));
-      }
-    };
-  }
-
-  getAllReservations(filters: ReservationListFilters): Observable<Reservation[]> {
+  getAllReservations(filters: ReservationListFilters): Observable<PaginatedReservations> {
     let params = new HttpParams();
-    if (filters.classroomId) params = params.set('classroomId', filters.classroomId);
-    if (filters.userId) params = params.set('userId', filters.userId);
-    if (filters.status && filters.status !== 'ALL') params = params.set('status', filters.status);
-    if (filters.startDate) params = params.set('startDate', filters.startDate);
-    if (filters.endDate) params = params.set('endDate', filters.endDate);
-    if (filters.sortField) params = params.set('sortField', filters.sortField);
-    if (filters.sortDirection) params = params.set('sortDirection', filters.sortDirection);
-    if (filters.page !== undefined) params = params.set('page', filters.page.toString());
-    if (filters.size !== undefined) params = params.set('size', filters.size.toString());
+    if (filters.classroomId) params = params.append('classroomId', filters.classroomId);
+    if (filters.userId) params = params.append('userId', filters.userId);
+    if (filters.status) params = params.append('status', filters.status);
+    if (filters.startDate) params = params.append('startDate', filters.startDate);
+    if (filters.endDate) params = params.append('endDate', filters.endDate);
+    if (filters.sortField) params = params.append('sortField', filters.sortField);
+    if (filters.sortDirection) params = params.append('sortDirection', filters.sortDirection);
+    if (filters.page !== undefined) params = params.append('page', filters.page.toString());
+    if (filters.size !== undefined) params = params.append('size', filters.size.toString());
 
-   
-    return this.http.get<Reservation[]>(`${this.apiUrl}/filter`, { params })
-      .pipe(catchError(this.handleError<Reservation[]>('obtener todas las reservas filtradas', [])));
+    return this.http.get<PaginatedReservations>(`${this.apiUrl}/filter`, { params }).pipe(
+      catchError(this.handleError)
+    );
   }
 
+  getReservationsByClassroomAndDateRange(classroomId: string, startDateTime: string, endDateTime: string): Observable<Reservation[]> {
+    let params = new HttpParams();
+    params = params.append('classroomId', classroomId);
+    params = params.append('startTime', startDateTime);
+    params = params.append('endTime', endDateTime);
+    return this.http.get<Reservation[]>(`${this.apiUrl}/classroom-availability`, { params }).pipe(
+      catchError(this.handleError)
+    );
+  }
 
-  getMyReservations( 
-    sortField: string = 'startTime', 
-    sortDirection: 'asc' | 'desc' = 'desc',
+  getMyReservations(
+    sortField: string = 'startTime',
+    sortDirection: 'desc' | 'asc' = 'desc',
     page: number = 0,
     size: number = 10,
-    status?: ReservationStatus | 'ALL', 
-    upcomingOnly?: boolean 
+    status?: ReservationStatus,
+    upcomingOnly: boolean = false,
+    startDate?: string,
+    endDate?: string
   ): Observable<PaginatedReservations> {
-    let params = new HttpParams()
-      .set('sortField', sortField)
-      .set('sortDirection', sortDirection)
-      .set('page', page.toString())
-      .set('size', size.toString());
-    if (status && status !== 'ALL') {
-      params = params.set('status', status);
-    }
-    if (upcomingOnly !== undefined) {
-      params = params.set('upcomingOnly', upcomingOnly.toString());
-    }
-    
-    return this.http.get<PaginatedReservations>(`${this.apiUrl}/my-list`, { params })
-      .pipe(catchError(this.handleError<PaginatedReservations>('obtener mis reservas', { data:[], totalPages: 0, totalItems: 0, currentPage:0 })));
-  }
-  
-  getReservationsByClassroomAndDateRange(classroomId: string, startDate: string, endDate: string): Observable<Reservation[]> {
-    return this.getAllReservations({ classroomId, startDate, endDate, sortField: 'startTime', sortDirection: 'asc' });
-  }
+    let params = new HttpParams();
+    params = params.append('sortField', sortField);
+    params = params.append('sortDirection', sortDirection);
+    params = params.append('page', page.toString());
+    params = params.append('size', size.toString());
+    if (status) params = params.append('status', status);
+    params = params.append('upcomingOnly', upcomingOnly.toString());
+    if (startDate) params = params.append('startDate', startDate);
+    if (endDate) params = params.append('endDate', endDate);
 
-  getMyUpcomingReservations(limit: number = 5): Observable<Reservation[]> {
-    return this.getMyReservations('startTime', 'asc', 0, limit, undefined, true)
-      .pipe(
-        map(response => response.data || []), 
-        catchError(this.handleError<Reservation[]>('obtener próximas reservas', []))
-      );
+    return this.http.get<PaginatedReservations>(`${this.apiUrl}/my-list`, { params }).pipe(
+      catchError(this.handleError)
+    );
   }
 
   getReservationById(id: string): Observable<Reservation> {
-    return this.http.get<Reservation>(`${this.apiUrl}/${id}`)
-      .pipe(catchError(this.handleError<Reservation>(`obtener reserva id=${id}`)));
+    return this.http.get<Reservation>(`${this.apiUrl}/${id}`).pipe(
+      catchError(this.handleError)
+    );
   }
 
-  createReservation(reservation: ReservationCreationData): Observable<Reservation> {
-    return this.http.post<Reservation>(this.apiUrl, reservation)
-      .pipe(catchError(this.handleError<Reservation>('crear reserva')));
+  createReservation(reservationData: ReservationCreationData): Observable<Reservation> {
+    return this.http.post<Reservation>(this.apiUrl, reservationData).pipe(
+      catchError(this.handleError)
+    );
   }
 
-  updateReservation(id: string, reservation: Partial<ReservationCreationData>): Observable<Reservation> {
-    return this.http.put<Reservation>(`${this.apiUrl}/${id}`, reservation)
-      .pipe(catchError(this.handleError<Reservation>('actualizar reserva')));
+  updateReservation(id: string, reservationData: ReservationCreationData): Observable<Reservation> {
+    return this.http.put<Reservation>(`${this.apiUrl}/${id}`, reservationData).pipe(
+      catchError(this.handleError)
+    );
   }
-  
+
   updateReservationStatus(id: string, status: ReservationStatus): Observable<Reservation> {
-    return this.http.patch<Reservation>(`${this.apiUrl}/${id}/status`, { status })
-      .pipe(catchError(this.handleError<Reservation>('actualizar estado de reserva')));
+    
+    const statusUpdatePayload = { status: status };
+    return this.http.patch<Reservation>(`${this.apiUrl}/${id}/status`, statusUpdatePayload).pipe(
+      catchError(this.handleError)
+    );
   }
 
-  cancelMyReservation(id: string): Observable<Reservation> {
-    return this.http.patch<Reservation>(`${this.apiUrl}/${id}/cancel`, {})
-      .pipe(catchError(this.handleError<Reservation>('cancelar reserva')));
+  cancelReservation(id: string): Observable<Reservation> {
+    return this.http.patch<Reservation>(`${this.apiUrl}/${id}/cancel`, {}).pipe(
+      catchError(this.handleError)
+    );
   }
 
   deleteReservation(id: string): Observable<void> {
-    return this.http.delete<void>(`${this.apiUrl}/${id}`)
-      .pipe(catchError(this.handleError<void>('eliminar reserva')));
+    return this.http.delete<void>(`${this.apiUrl}/${id}`).pipe(
+      catchError(this.handleError)
+    );
+  }
+
+  private handleError(error: HttpErrorResponse) {
+    let errorMessage = 'An unknown error occurred!';
+    if (error.error instanceof ErrorEvent) {
+      errorMessage = `Error: ${error.error.message}`;
+    } else {
+      console.error(`Backend returned code ${error.status}, body was: ${error.error}`);
+      if (error.status === 401) {
+        errorMessage = 'Unauthorized: Please log in again.';
+      } else if (error.status === 403) {
+        errorMessage = 'Forbidden: You do not have permission to perform this action.';
+      } else if (error.error && error.error.message) {
+        errorMessage = `${error.error.message}`;
+      } else if (error.statusText) {
+        errorMessage = `Error ${error.status}: ${error.statusText}`;
+      } else {
+        errorMessage = `Error ${error.status}: Something went wrong on the server.`;
+      }
+    }
+    return throwError(() => new Error(errorMessage));
   }
 }

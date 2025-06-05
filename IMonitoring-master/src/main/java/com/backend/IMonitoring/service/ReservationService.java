@@ -43,11 +43,12 @@ public class ReservationService {
         logger.info("Attempting to create reservation with DTO: {} by user: {}", reservationDTO, currentUser.getEmail());
 
         User userToAssign;
+        // Logic for assigning user to reservation (Admin/Coordinator can assign, others reserve for self)
         if (reservationDTO.getUserId() != null && (currentUser.getRole() == Rol.ADMIN || currentUser.getRole() == Rol.COORDINADOR)) {
             userToAssign = userRepository.findById(reservationDTO.getUserId())
                     .orElseThrow(() -> new ResourceNotFoundException("Usuario especificado para la reserva no encontrado con ID: " + reservationDTO.getUserId()));
         } else {
-            userToAssign = currentUser;
+            userToAssign = currentUser; // If userId is null or user is not Admin/Coordinator, assign to current user
         }
         logger.info("Reservation will be assigned to user: {}", userToAssign.getEmail());
 
@@ -57,18 +58,21 @@ public class ReservationService {
 
         Reservation reservation = new Reservation();
         reservation.setPurpose(reservationDTO.getPurpose());
-        reservation.setStartTime(reservationDTO.getStartTime()); 
-        reservation.setEndTime(reservationDTO.getEndTime());     
+        reservation.setStartTime(reservationDTO.getStartTime());
+        reservation.setEndTime(reservationDTO.getEndTime());
         reservation.setClassroom(classroom);
         reservation.setUser(userToAssign);
-        reservation.setCreatedAt(LocalDateTime.now()); 
+        reservation.setCreatedAt(LocalDateTime.now());
 
+        // Set initial status
         reservation.setStatus(ReservationStatus.PENDIENTE);
+        // If Admin or Coordinator is creating, and a status is provided in DTO, use it. Otherwise, default to CONFIRMADA.
         if (currentUser.getRole() == Rol.ADMIN || currentUser.getRole() == Rol.COORDINADOR) {
-            reservation.setStatus(ReservationStatus.CONFIRMADA);
+            reservation.setStatus(reservationDTO.getStatus() != null ? reservationDTO.getStatus() : ReservationStatus.CONFIRMADA);
         }
         logger.info("Reservation status set to: {} for user {}", reservation.getStatus(), userToAssign.getEmail());
 
+        // Check for overlapping reservations with PENDING or CONFIRMADA status
         List<Reservation> overlappingReservations = reservationRepository.findOverlappingReservations(
                 reservation.getClassroom().getId(),
                 reservation.getStartTime(),
@@ -93,13 +97,14 @@ public class ReservationService {
         return convertToDTO(savedReservation);
     }
 
-    public List<ReservationResponseDTO> getAllReservations(
+    // Modified getAllReservations to return a Page for consistency and pagination support
+    public Page<ReservationResponseDTO> getAllReservations(
             String classroomId, String userId, ReservationStatus status,
-            Instant startDate, Instant endDate, 
-            String sortField, String sortDirection) {
-                
-        logger.debug("Fetching all reservations with filters - classroomId: {}, userId: {}, status: {}, startDate: {}, endDate: {}, sortField: {}, sortDirection: {}",
-            classroomId, userId, status, startDate, endDate, sortField, sortDirection);
+            Instant startDate, Instant endDate,
+            String sortField, String sortDirection,
+            int page, int size) { // Added page and size parameters
+        logger.debug("Fetching all reservations with filters - classroomId: {}, userId: {}, status: {}, startDate: {}, endDate: {}, sortField: {}, sortDirection: {}, page: {}, size: {}",
+            classroomId, userId, status, startDate, endDate, sortField, sortDirection, page, size);
 
         Specification<Reservation> spec = Specification.where(null);
 
@@ -112,25 +117,31 @@ public class ReservationService {
         if (status != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), status));
         }
-        
+
+        // Adjusting date filters to be more inclusive and correct based on common use cases
         if (startDate != null) {
             spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("endTime"), startDate));
         }
         if (endDate != null) {
             spec = spec.and((root, query, cb) -> cb.lessThanOrEqualTo(root.get("startTime"), endDate));
         }
-        
+
         Sort.Direction direction = (sortDirection == null || sortDirection.equalsIgnoreCase("desc")) ? Sort.Direction.DESC : Sort.Direction.ASC;
         String field = (sortField == null || sortField.isEmpty()) ? "startTime" : sortField;
-        
-        if ("classroomName".equals(field)) field = "classroom.name"; 
-        else if ("userName".equals(field)) field = "user.name";     
 
-        List<Reservation> reservations = reservationRepository.findAll(spec, Sort.by(direction, field));
-        logger.debug("Found {} reservations after applying spec and sort.", reservations.size());
-        return reservations.stream()
-                .map(this::convertToDTO)
-                .collect(Collectors.toList());
+        // Ensure sorting by nested properties works correctly
+        if ("classroomName".equals(field)) field = "classroom.name";
+        else if ("userName".equals(field)) field = "user.name";
+
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, field));
+        Page<Reservation> reservationPage = reservationRepository.findAll(spec, pageable);
+
+        logger.debug("Found {} reservations (total elements: {}) after applying spec, sort, and pagination.", reservationPage.getNumberOfElements(), reservationPage.getTotalElements());
+        return new PageImpl<>(
+                reservationPage.getContent().stream().map(this::convertToDTO).collect(Collectors.toList()),
+                pageable,
+                reservationPage.getTotalElements()
+        );
     }
 
     public Page<ReservationResponseDTO> getFilteredUserReservations(
@@ -139,6 +150,7 @@ public class ReservationService {
         int page, int size, boolean upcomingOnly,
         Instant startDate, Instant endDate, User currentUser) {
 
+        // Authorization check: User can only see their own reservations, or Admin/Coordinator can see others'
         if (!currentUser.getId().equals(userId) && !(currentUser.getRole() == Rol.ADMIN || currentUser.getRole() == Rol.COORDINADOR)) {
             throw new UnauthorizedAccessException("No tiene permiso para ver las reservas de este usuario.");
         }
@@ -148,7 +160,7 @@ public class ReservationService {
         if (status != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), status));
         }
-        if (upcomingOnly) { 
+        if (upcomingOnly) {
             spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("startTime"), Instant.now()));
         } else {
             if (startDate != null) {
@@ -166,7 +178,7 @@ public class ReservationService {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(directionSort, fieldSort));
         Page<Reservation> reservationPage = reservationRepository.findAll(spec, pageable);
-        
+
         List<ReservationResponseDTO> dtos = reservationPage.getContent().stream()
                                             .map(this::convertToDTO)
                                             .collect(Collectors.toList());
@@ -177,15 +189,17 @@ public class ReservationService {
     public ReservationResponseDTO getReservationById(String id, User currentUser) {
         Reservation reservation = reservationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Reserva no encontrada con ID: " + id));
-        
+
         boolean canView = false;
         if (currentUser.getRole() == Rol.ADMIN) {
             canView = true;
         } else if (currentUser.getRole() == Rol.COORDINADOR) {
+            // Coordinator can view their own reservations or any student's reservation
             if (reservation.getUser().getId().equals(currentUser.getId()) || reservation.getUser().getRole() == Rol.ESTUDIANTE) {
                 canView = true;
             }
-        } else { 
+        } else { // PROFESOR, ESTUDIANTE, TUTOR
+            // Regular user can only view their own reservations
             if (reservation.getUser().getId().equals(currentUser.getId())) {
                 canView = true;
             }
@@ -195,7 +209,7 @@ public class ReservationService {
         }
         return convertToDTO(reservation);
     }
-    
+
     @Transactional
     public ReservationResponseDTO updateReservationStatus(String reservationId, ReservationStatus newStatus, User currentUser) {
         Reservation reservation = reservationRepository.findById(reservationId)
@@ -205,14 +219,22 @@ public class ReservationService {
         if (currentUser.getRole() == Rol.ADMIN) {
             canChangeStatus = true;
         } else if (currentUser.getRole() == Rol.COORDINADOR) {
+            // Coordinator can confirm/reject PENDING student reservations
             if (reservation.getUser().getRole() == Rol.ESTUDIANTE && reservation.getStatus() == ReservationStatus.PENDIENTE &&
                 (newStatus == ReservationStatus.CONFIRMADA || newStatus == ReservationStatus.RECHAZADA)) {
                 canChangeStatus = true;
             }
+            // Coordinator can cancel their own PENDING or CONFIRMADA reservations
             if (reservation.getUser().getId().equals(currentUser.getId()) &&
                 (reservation.getStatus() == ReservationStatus.PENDIENTE || reservation.getStatus() == ReservationStatus.CONFIRMADA) &&
                  newStatus == ReservationStatus.CANCELADA) {
                  canChangeStatus = true;
+            }
+            // Coordinator can cancel student's PENDING or CONFIRMADA reservations
+            if (reservation.getUser().getRole() == Rol.ESTUDIANTE &&
+                (reservation.getStatus() == ReservationStatus.PENDIENTE || reservation.getStatus() == ReservationStatus.CONFIRMADA) &&
+                newStatus == ReservationStatus.CANCELADA) {
+                canChangeStatus = true;
             }
         } else if (reservation.getUser().getId().equals(currentUser.getId()) &&
             (reservation.getStatus() == ReservationStatus.PENDIENTE || reservation.getStatus() == ReservationStatus.CONFIRMADA) &&
@@ -234,18 +256,19 @@ public class ReservationService {
         Reservation reservation = reservationRepository.findById(reservationId)
             .orElseThrow(() -> new ResourceNotFoundException("Reserva no encontrada con ID: " + reservationId));
 
+        // This method is specifically for "my" reservations, so it should only apply if the current user owns it
         if (!reservation.getUser().getId().equals(currentUser.getId())) {
             throw new UnauthorizedAccessException("No puede cancelar una reserva que no le pertenece.");
         }
         if (reservation.getStatus() != ReservationStatus.PENDIENTE && reservation.getStatus() != ReservationStatus.CONFIRMADA) {
             throw new InvalidReservationException("Solo se pueden cancelar reservas con estado PENDIENTE o CONFIRMADA. Estado actual: " + reservation.getStatus());
         }
-        
+
         reservation.setStatus(ReservationStatus.CANCELADA);
         Reservation cancelledReservation = reservationRepository.save(reservation);
         return convertToDTO(cancelledReservation);
     }
-    
+
     @Transactional
     public ReservationResponseDTO updateReservation(String id, ReservationRequestDTO reservationDTO, User currentUser) {
         Reservation reservation = reservationRepository.findById(id)
@@ -255,14 +278,18 @@ public class ReservationService {
         if (currentUser.getRole() == Rol.ADMIN) {
             canUpdate = true;
         } else if (currentUser.getRole() == Rol.COORDINADOR) {
-            if (reservation.getUser().getId().equals(currentUser.getId()) && reservation.getStatus() == ReservationStatus.PENDIENTE) { 
-                canUpdate = true;
-            } else if (reservation.getUser().getRole() == Rol.ESTUDIANTE &&
-                       (reservation.getStatus() == ReservationStatus.PENDIENTE || reservation.getStatus() == ReservationStatus.CONFIRMADA)) { 
+            // Coordinator can update their own PENDING reservations
+            if (reservation.getUser().getId().equals(currentUser.getId()) && reservation.getStatus() == ReservationStatus.PENDIENTE) {
                 canUpdate = true;
             }
-        } else { 
-            if (reservation.getUser().getId().equals(currentUser.getId()) && reservation.getStatus() == ReservationStatus.PENDIENTE) { 
+            // Coordinator can update ESTUDIANTE reservations (PENDIENTE or CONFIRMADA)
+            if (reservation.getUser().getRole() == Rol.ESTUDIANTE &&
+                       (reservation.getStatus() == ReservationStatus.PENDIENTE || reservation.getStatus() == ReservationStatus.CONFIRMADA)) {
+                canUpdate = true;
+            }
+        } else { // PROFESOR, ESTUDIANTE, TUTOR
+            // Regular user can only update their own PENDING reservations
+            if (reservation.getUser().getId().equals(currentUser.getId()) && reservation.getStatus() == ReservationStatus.PENDIENTE) {
                 canUpdate = true;
             }
         }
@@ -271,40 +298,52 @@ public class ReservationService {
             throw new UnauthorizedAccessException("No tiene permiso para actualizar esta reserva o ya no está en un estado editable.");
         }
 
+        // Update Classroom if changed
         if (reservationDTO.getClassroomId() != null && !reservationDTO.getClassroomId().equals(reservation.getClassroom().getId())) {
             Classroom newClassroom = classroomRepository.findById(reservationDTO.getClassroomId())
                     .orElseThrow(() -> new ResourceNotFoundException("Nueva aula no encontrada con ID: " + reservationDTO.getClassroomId()));
             reservation.setClassroom(newClassroom);
         }
 
+        // Update basic fields
         if (reservationDTO.getPurpose() != null) reservation.setPurpose(reservationDTO.getPurpose());
-        if (reservationDTO.getStartTime() != null) reservation.setStartTime(reservationDTO.getStartTime()); 
-        if (reservationDTO.getEndTime() != null) reservation.setEndTime(reservationDTO.getEndTime());     
+        if (reservationDTO.getStartTime() != null) reservation.setStartTime(reservationDTO.getStartTime());
+        if (reservationDTO.getEndTime() != null) reservation.setEndTime(reservationDTO.getEndTime());
 
+        // Only Admin can change the associated user
         if (reservationDTO.getUserId() != null && currentUser.getRole() == Rol.ADMIN ) {
              User userToAssign = userRepository.findById(reservationDTO.getUserId())
                     .orElseThrow(() -> new ResourceNotFoundException("Usuario especificado para la reserva no encontrado con ID: " + reservationDTO.getUserId()));
             reservation.setUser(userToAssign);
         }
 
-        if (reservationDTO.getStatus() != null) { 
-            if (currentUser.getRole() == Rol.ADMIN) { 
+        // Status update logic for update method
+        if (reservationDTO.getStatus() != null) {
+            if (currentUser.getRole() == Rol.ADMIN) {
                 reservation.setStatus(reservationDTO.getStatus());
-            } else if (currentUser.getRole() == Rol.COORDINADOR &&
-                       reservation.getUser().getRole() == Rol.ESTUDIANTE &&
-                       (reservationDTO.getStatus() == ReservationStatus.CONFIRMADA || reservationDTO.getStatus() == ReservationStatus.RECHAZADA)) {
-                if (reservation.getStatus() == ReservationStatus.PENDIENTE) {
+            } else if (currentUser.getRole() == Rol.COORDINADOR && reservation.getUser().getRole() == Rol.ESTUDIANTE) {
+                // Coordinator can change status of student's pending reservations to CONFIRMADA or RECHAZADA
+                if (reservation.getStatus() == ReservationStatus.PENDIENTE &&
+                    (reservationDTO.getStatus() == ReservationStatus.CONFIRMADA || reservationDTO.getStatus() == ReservationStatus.RECHAZADA)) {
                     reservation.setStatus(reservationDTO.getStatus());
+                } else if (reservation.getStatus() == ReservationStatus.CONFIRMADA &&
+                           reservationDTO.getStatus() == ReservationStatus.CANCELADA) {
+                    reservation.setStatus(ReservationStatus.CANCELADA);
                 } else {
-                     throw new InvalidReservationException("El coordinador solo puede confirmar o rechazar reservas de estudiantes que están PENDIENTES.");
+                     throw new InvalidReservationException("El coordinador solo puede confirmar/rechazar reservas de estudiantes que están PENDIENTES, o cancelarlas si están CONFIRMADAS.");
                 }
             } else if (reservation.getUser().getId().equals(currentUser.getId()) &&
                        reservation.getStatus() == ReservationStatus.PENDIENTE &&
                        reservationDTO.getStatus() == ReservationStatus.CANCELADA) {
                  reservation.setStatus(ReservationStatus.CANCELADA);
+            } else {
+                // Other users cannot change status via this endpoint if not handled above
+                // Or if they try to set an invalid status for their current permission
+                throw new UnauthorizedAccessException("No tienes permiso para cambiar el estado de esta reserva a: " + reservationDTO.getStatus());
             }
         }
 
+        // Re-check for overlaps with the updated times/classroom
         List<Reservation> overlappingReservations = reservationRepository.findOverlappingReservationsExcludingSelf(
                 reservation.getClassroom().getId(),
                 reservation.getStartTime(),
@@ -330,17 +369,26 @@ public class ReservationService {
     public void deleteReservation(String id, User currentUser) {
         Reservation reservation = reservationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Reserva no encontrada con ID: " + id));
-        
+
         boolean canDelete = false;
         if (currentUser.getRole() == Rol.ADMIN) {
             canDelete = true;
-        } else if (reservation.getUser().getId().equals(currentUser.getId()) &&
-                   (reservation.getStatus() == ReservationStatus.PENDIENTE || reservation.getStatus() == ReservationStatus.CANCELADA) ) {
-            canDelete = true;
-        } else if (currentUser.getRole() == Rol.COORDINADOR &&
-                   reservation.getUser().getRole() == Rol.ESTUDIANTE &&
-                   (reservation.getStatus() == ReservationStatus.PENDIENTE || reservation.getStatus() == ReservationStatus.CANCELADA || reservation.getStatus() == ReservationStatus.RECHAZADA) ){
-            canDelete = true;
+        } else if (currentUser.getRole() == Rol.COORDINADOR) {
+            // Coordinator can delete student's reservations regardless of status (PENDIENTE, CONFIRMADA, RECHAZADA, CANCELADA)
+            if (reservation.getUser().getRole() == Rol.ESTUDIANTE) {
+                canDelete = true;
+            }
+            // Coordinator can delete their own reservations if PENDIENTE or CANCELADA
+            if (reservation.getUser().getId().equals(currentUser.getId()) &&
+                (reservation.getStatus() == ReservationStatus.PENDIENTE || reservation.getStatus() == ReservationStatus.CANCELADA || reservation.getStatus() == ReservationStatus.RECHAZADA)) {
+                canDelete = true;
+            }
+        } else { // PROFESOR, ESTUDIANTE, TUTOR
+            // Regular user can delete their own reservations if PENDIENTE or CANCELADA
+            if (reservation.getUser().getId().equals(currentUser.getId()) &&
+               (reservation.getStatus() == ReservationStatus.PENDIENTE || reservation.getStatus() == ReservationStatus.CANCELADA || reservation.getStatus() == ReservationStatus.RECHAZADA)) {
+                canDelete = true;
+            }
         }
 
         if (!canDelete) {
@@ -353,10 +401,10 @@ public class ReservationService {
         ReservationResponseDTO dto = new ReservationResponseDTO();
         dto.setId(reservation.getId());
         dto.setPurpose(reservation.getPurpose());
-        dto.setStartTime(reservation.getStartTime()); 
-        dto.setEndTime(reservation.getEndTime());     
+        dto.setStartTime(reservation.getStartTime());
+        dto.setEndTime(reservation.getEndTime());
         dto.setStatus(reservation.getStatus());
-        dto.setCreatedAt(reservation.getCreatedAt()); 
+        dto.setCreatedAt(reservation.getCreatedAt());
         if (reservation.getUser() != null) {
             ReservationResponseDTO.UserSummaryDTO userSummary = new ReservationResponseDTO.UserSummaryDTO();
             userSummary.setId(reservation.getUser().getId());

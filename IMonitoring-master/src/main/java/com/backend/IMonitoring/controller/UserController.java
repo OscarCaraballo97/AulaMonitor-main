@@ -84,7 +84,7 @@ public class UserController {
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('COORDINADOR') or #id == principal.id")
     public ResponseEntity<UserDTO> getUserById(@PathVariable String id, @AuthenticationPrincipal UserDetailsImpl currentUserDetails) {
-        User targetUser = userService.getUserById(id); 
+        User targetUser = userService.getUserById(id);
         User performingUser = getCurrentUserEntity(currentUserDetails);
 
         boolean isAdmin = performingUser.getRole() == Rol.ADMIN;
@@ -93,7 +93,7 @@ public class UserController {
         if (isAdmin || isSelf) {
             return ResponseEntity.ok(UserDTO.fromEntity(targetUser));
         }
-        if (performingUser.getRole() == Rol.COORDINADOR && 
+        if (performingUser.getRole() == Rol.COORDINADOR &&
             targetUser != null && (targetUser.getRole() == Rol.ESTUDIANTE || targetUser.getRole() == Rol.TUTOR || targetUser.getRole() == Rol.PROFESOR)) {
             return ResponseEntity.ok(UserDTO.fromEntity(targetUser));
         }
@@ -104,7 +104,7 @@ public class UserController {
     @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR')")
     public ResponseEntity<List<UserDTO>> getUsersByRole(@PathVariable Rol role, @AuthenticationPrincipal UserDetailsImpl currentUserDetails) {
         User performingUser = getCurrentUserEntity(currentUserDetails);
-        if (performingUser.getRole() == Rol.ADMIN || 
+        if (performingUser.getRole() == Rol.ADMIN ||
             (performingUser.getRole() == Rol.COORDINADOR && (role == Rol.ESTUDIANTE || role == Rol.TUTOR || role == Rol.PROFESOR))) {
             return ResponseEntity.ok(userService.getUsersByRole(role).stream().map(UserDTO::fromEntity).collect(Collectors.toList()));
         }
@@ -115,7 +115,7 @@ public class UserController {
     @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR')")
     public ResponseEntity<UserDTO> createUser(@Valid @RequestBody UserDTO userDTO, @AuthenticationPrincipal UserDetailsImpl currentUserDetails) {
         User performingUser = getCurrentUserEntity(currentUserDetails);
-        User createdUser = userService.createUser(userDTO, performingUser); 
+        User createdUser = userService.createUser(userDTO, performingUser);
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
                 .path("/{id}")
@@ -148,13 +148,15 @@ public class UserController {
 
     @GetMapping("/{userId}/reservations")
     @PreAuthorize("hasRole('ADMIN') or hasRole('COORDINADOR') or #userId == principal.id")
-    public ResponseEntity<List<ReservationResponseDTO>> getUserReservations(
+    public ResponseEntity<Page<ReservationResponseDTO>> getUserReservations( // Changed return type to Page
             @PathVariable String userId,
             @RequestParam(required = false, defaultValue = "startTime") String sortField,
             @RequestParam(required = false, defaultValue = "desc") String sortDirection,
+            @RequestParam(required = false, defaultValue = "0") int page, // Added page
+            @RequestParam(required = false, defaultValue = "100") int size, // Added size, using a high default if not paginated on frontend
             @AuthenticationPrincipal UserDetailsImpl currentUserDetails) {
-        List<ReservationResponseDTO> reservations = reservationService.getAllReservations(
-                null, userId, null, null, null, sortField, sortDirection
+        Page<ReservationResponseDTO> reservations = reservationService.getAllReservations( // Updated call
+                null, userId, null, null, null, sortField, sortDirection, page, size
         );
         return ResponseEntity.ok(reservations);
     }
@@ -170,31 +172,31 @@ public class UserController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant startDate, // CAMBIO AQUÍ
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant endDate,   // CAMBIO AQUÍ
             @RequestParam(required = false, defaultValue = "0") int page,
-            @RequestParam(required = false, defaultValue = "10") int size) {  
-        
+            @RequestParam(required = false, defaultValue = "10") int size) {
+
         User currentAppUser = getCurrentUserEntity(currentUserDetails);
         Page<ReservationResponseDTO> userReservationsPage = reservationService.getFilteredUserReservations(
-                currentAppUser.getId(), 
-                status, 
-                sortField, 
-                sortDirection, 
-                page, 
-                size, 
+                currentAppUser.getId(),
+                status,
+                sortField,
+                sortDirection,
+                page,
+                size,
                 upcomingOnlyParam != null && upcomingOnlyParam,
-                startDate, 
+                startDate,
                 endDate,
-                currentAppUser 
+                currentAppUser
         );
         return ResponseEntity.ok(userReservationsPage);
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR')") 
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR')")
     public ResponseEntity<Void> deleteUser(
-            @PathVariable String id, 
+            @PathVariable String id,
             @AuthenticationPrincipal UserDetailsImpl currentUserDetails) {
         User performingUser = getCurrentUserEntity(currentUserDetails);
-        userService.deleteUser(id, performingUser); 
+        userService.deleteUser(id, performingUser);
         return ResponseEntity.noContent().build();
     }
 }

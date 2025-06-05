@@ -1,11 +1,11 @@
 import { Routes } from '@angular/router';
-import { authGuard } from './guards/auth.guard'; 
+import { authGuard } from './guards/auth.guard';
 import { inject } from '@angular/core';
-import { AuthService } from './services/auth.service'; 
-import { Rol } from './models/rol.model';  
+import { AuthService } from './services/auth.service';
+import { Rol } from './models/rol.model';
 
-const canMatchAdminOrCoordinator = () => inject(AuthService).hasAnyRole([Rol.ADMIN, Rol.COORDINADOR]);
-const canMatchAdmin = () => inject(AuthService).hasRole(Rol.ADMIN); // Asegúrate de que esta línea esté presente si la usas en otro lugar
+const canAccessAllReservations = () => inject(AuthService).hasAnyRole([Rol.ADMIN, Rol.COORDINADOR]);
+const canCreateOrEditReservations = () => inject(AuthService).hasAnyRole([Rol.ADMIN, Rol.COORDINADOR, Rol.PROFESOR, Rol.ESTUDIANTE, Rol.TUTOR]);
 
 export const routes: Routes = [
   {
@@ -28,7 +28,7 @@ export const routes: Routes = [
   {
    path: 'app',
     loadComponent: () => import('./main-layout/main-layout.page').then((m) => m.MainLayoutPage),
-    canActivate: [authGuard], 
+    canActivate: [authGuard],
     children: [
       {
        path: 'dashboard',
@@ -41,32 +41,32 @@ export const routes: Routes = [
       {
         path: 'classrooms',
         loadChildren: () => import('./pages/classrooms/classrooms.routes').then(m => m.CLASSROOMS_ROUTES),
-       // Se ha eliminado canMatch para permitir acceso a todos los usuarios autenticados
+      
       },
       {
         path: 'buildings',
         loadChildren: () => import('./pages/buildings/buildings.routes').then(m => m.BUILDING_ROUTES),
-        canMatch: [canMatchAdminOrCoordinator]
+        canMatch: [canAccessAllReservations] 
       },
       {
-        path: 'users',
-        loadChildren: () => import('./pages/users/users.routes').then(m => m.USER_ROUTES),
-        canMatch: [canMatchAdminOrCoordinator]
-        },
-      {
-        path: 'profile',
-        loadComponent: () => import('./pages/profile/profile.page').then(m => m.ProfilePage)
-      },
-      {
-        path: 'test-ionic',
-        loadComponent: () => import('./pages/test-ionic/test-ionic.page').then( m => m.TestIonicPage)
-      },
-      {
-        path: '',
-        redirectTo: 'dashboard',
-        pathMatch: 'full',
-      },
-    ],
-  },
-  { path: '**', redirectTo: '/login', pathMatch: 'full' } 
+        path: 'users',
+        loadChildren: () => import('./pages/users/users.routes').then(m => m.USER_ROUTES),
+        canMatch: [canAccessAllReservations] 
+        },
+      {
+        path: 'profile',
+         loadComponent: () => import('./pages/profile/profile.page').then(m => m.ProfilePage)
+       },
+       {
+       path: 'test-ionic',
+       loadComponent: () => import('./pages/test-ionic/test-ionic.page').then( m => m.TestIonicPage)
+       },
+       {
+         path: '',
+         redirectTo: 'dashboard',
+         pathMatch: 'full',
+      },
+     ],
+   },
+   { path: '**', redirectTo: '/login', pathMatch: 'full' }
 ];

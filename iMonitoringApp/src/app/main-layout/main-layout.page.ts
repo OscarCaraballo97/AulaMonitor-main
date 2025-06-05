@@ -3,7 +3,7 @@ import { Router, RouterModule, NavigationEnd, IsActiveMatchOptions, ActivatedRou
 import { IonicModule, Platform, PopoverController, NavController, MenuController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../services/auth.service';
-import { ThemeService } from '../services/theme.service'; // Make sure this path is correct
+import { ThemeService } from '../services/theme.service';
 import { Rol } from '../models/rol.model';
 import { User } from '../models/user.model';
 import { Subject } from 'rxjs';
@@ -101,12 +101,12 @@ export class MainLayoutPage implements OnInit, OnDestroy {
       { title: 'Mis Reservas', icon: 'calendar-outline', route: '/app/reservations/my-list', roles: [Rol.ADMIN, Rol.PROFESOR, Rol.TUTOR, Rol.ESTUDIANTE, Rol.COORDINADOR] },
       { title: 'Nueva Reserva', icon: 'add-circle-outline', route: '/app/reservations/new', roles: [Rol.ADMIN, Rol.PROFESOR, Rol.TUTOR, Rol.ESTUDIANTE, Rol.COORDINADOR] },
       { title: 'Disponibilidad Aulas', icon: 'time-outline', route: '/app/classrooms/availability', roles: [Rol.ADMIN, Rol.PROFESOR, Rol.TUTOR, Rol.ESTUDIANTE, Rol.COORDINADOR] },
-      { title: 'Estudiantes (Coord.)', icon: 'people-outline', route: '/app/users', roles: [Rol.COORDINADOR] },
-      { title: 'Reservas Estudiantes (Coord.)', icon: 'filing-outline', route: '/app/reservations/all', roles: [Rol.COORDINADOR] },
-      { title: 'Edificios', icon: 'business-outline', route: '/app/buildings', roles: [Rol.ADMIN] },
-      { title: 'Aulas (Gestión)', icon: 'school-outline', route: '/app/classrooms', roles: [Rol.ADMIN] },
-      { title: 'Usuarios (Gestión)', icon: 'people-circle-outline', route: '/app/users', roles: [Rol.ADMIN] },
-      { title: 'Todas las Reservas (Admin)', icon: 'list-circle-outline', route: '/app/reservations/all', roles: [Rol.ADMIN] },
+      { title: 'Edificios', icon: 'business-outline', route: '/app/buildings', roles: [Rol.ADMIN] }, // Only for ADMIN
+      { title: 'Aulas (Gestión)', icon: 'school-outline', route: '/app/classrooms', roles: [Rol.ADMIN] }, // Only for ADMIN (create/edit/delete)
+      { title: 'Usuarios (Gestión)', icon: 'people-circle-outline', route: '/app/users', roles: [Rol.ADMIN] }, // Only for ADMIN (create/edit/delete)
+      { title: 'Estudiantes (Coord.)', icon: 'people-outline', route: '/app/users', roles: [Rol.COORDINADOR] }, // Re-route to users list, logic in component
+      { title: 'Todas las Reservas (Coord.)', icon: 'filing-outline', route: '/app/reservations/list', roles: [Rol.COORDINADOR] }, // Route for coordinator to see all reservations
+      { title: 'Todas las Reservas (Admin)', icon: 'list-circle-outline', route: '/app/reservations/list', roles: [Rol.ADMIN] }, // Updated route to 'list'
       { title: 'Mi Perfil', icon: 'person-outline', route: '/app/profile', roles: [Rol.ADMIN, Rol.PROFESOR, Rol.TUTOR, Rol.ESTUDIANTE, Rol.COORDINADOR] },
     ];
   }
@@ -124,27 +124,36 @@ export class MainLayoutPage implements OnInit, OnDestroy {
     }
     const uniqueLinks = new Map<string, NavLink>();
     this.allNavLinks.forEach(link => {
-        if (link.roles && link.roles.includes(this.userRole!) && link.route) {
-            if (!uniqueLinks.has(link.route)) {
-                uniqueLinks.set(link.route, { ...link, isActive: this.router.isActive(link.route, this.getIsActiveMatchOptions(link.route)) });
+
+        if (link.route === '/app/users') {
+            if (this.userRole === Rol.ADMIN && link.title === 'Usuarios (Gestión)') {
+                uniqueLinks.set(link.route + '-admin', { ...link, isActive: this.router.isActive(link.route, this.getIsActiveMatchOptions(link.route)) });
+            } else if (this.userRole === Rol.COORDINADOR && link.title === 'Estudiantes (Coord.)') {
+                uniqueLinks.set(link.route + '-coord', { ...link, isActive: this.router.isActive(link.route, this.getIsActiveMatchOptions(link.route)) });
             }
-        } else if (!link.roles || link.roles.length === 0) {
-             if (link.route && !uniqueLinks.has(link.route)) {
+        } else if (link.route === '/app/reservations/list') {
+            if (this.userRole === Rol.ADMIN && link.title === 'Todas las Reservas (Admin)') {
+                uniqueLinks.set(link.route + '-admin', { ...link, isActive: this.router.isActive(link.route, this.getIsActiveMatchOptions(link.route)) });
+            } else if (this.userRole === Rol.COORDINADOR && link.title === 'Todas las Reservas (Coord.)') {
+                uniqueLinks.set(link.route + '-coord', { ...link, isActive: this.router.isActive(link.route, this.getIsActiveMatchOptions(link.route)) });
+            }
+        }
+        else if (link.roles && link.roles.includes(this.userRole!)) {
+           
+            if (link.route && !uniqueLinks.has(link.route)) { 
                 uniqueLinks.set(link.route, { ...link, isActive: this.router.isActive(link.route, this.getIsActiveMatchOptions(link.route)) });
-            } else if (!link.route && link.title && !uniqueLinks.has(link.title)) {
-                uniqueLinks.set(link.title, link);
             }
         }
     });
-    this.filteredNavLinks = Array.from(uniqueLinks.values());
+    this.filteredNavLinks = Array.from(uniqueLinks.values()).sort((a,b) => a.title.localeCompare(b.title));
     this.cdr.detectChanges();
   }
 
   getIsActiveMatchOptions(route: string): IsActiveMatchOptions {
-    if (route.includes('/new') || route.match(/\/:id($|\/edit)/)) {
-      return { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' };
+    if (route.includes('/new') || route.includes('/edit/') || route.includes('/availability/')) {
+      return { paths: 'subset', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' };
     }
-    return { paths: 'subset', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' };
+    return { paths: 'exact', queryParams: 'ignored', fragment: 'ignored', matrixParams: 'ignored' };
   }
 
   updateLinkActiveStates() {
@@ -156,16 +165,22 @@ export class MainLayoutPage implements OnInit, OnDestroy {
   }
 
   updatePageTitle(currentUrl: string) {
-    const activeLink = this.filteredNavLinks.find(link => link.isActive);
-    this.currentPageTitle = activeLink?.title || this.appName;
-    let route = this.activatedRoute;
-    while (route.firstChild) {
-      route = route.firstChild;
+    let titleFromRouteData: string | undefined;
+    let currentRoute = this.activatedRoute;
+    while (currentRoute.firstChild) {
+      currentRoute = currentRoute.firstChild;
     }
-    route.data.pipe(take(1)).subscribe((data: any) => {
-      this.currentPageTitle = data['title'] || this.currentPageTitle;
-      this.cdr.detectChanges();
+    currentRoute.data.pipe(take(1)).subscribe((data: any) => {
+      titleFromRouteData = data['title'];
     });
+
+    if (titleFromRouteData) {
+      this.currentPageTitle = titleFromRouteData;
+    } else {
+      const activeLink = this.filteredNavLinks.find(link => link.route && this.router.isActive(link.route, this.getIsActiveMatchOptions(link.route)));
+      this.currentPageTitle = activeLink?.title || this.appName;
+    }
+    this.cdr.detectChanges();
   }
 
   isLinkActive(link?: NavLink): boolean {

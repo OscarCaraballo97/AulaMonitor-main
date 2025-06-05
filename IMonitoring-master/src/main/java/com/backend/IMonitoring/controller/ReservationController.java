@@ -39,7 +39,7 @@ class UpdateStatusRequest {
 public class ReservationController {
 
     private final ReservationService reservationService;
-    private final UserRepository userRepository; 
+    private final UserRepository userRepository;
 
     private User getCurrentUserEntity(UserDetails userDetails) {
         if (userDetails == null) {
@@ -55,19 +55,21 @@ public class ReservationController {
 
     @GetMapping("/filter")
     @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR')")
-    public ResponseEntity<List<ReservationResponseDTO>> getAdminFilteredReservations(
+    public ResponseEntity<Page<ReservationResponseDTO>> getAdminFilteredReservations( // Changed return type to Page
             @RequestParam(required = false) String classroomId,
             @RequestParam(required = false) String userId,
             @RequestParam(required = false) ReservationStatus status,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant startDate, // CAMBIO AQUÍ
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant endDate,   // CAMBIO AQUÍ
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant endDate,
             @RequestParam(required = false, defaultValue = "startTime") String sortField,
-            @RequestParam(required = false, defaultValue = "desc") String sortDirection) {
-        
-        List<ReservationResponseDTO> reservationDTOs = reservationService.getAllReservations(
-                classroomId, userId, status, startDate, endDate, sortField, sortDirection
+            @RequestParam(required = false, defaultValue = "desc") String sortDirection,
+            @RequestParam(required = false, defaultValue = "0") int page, // Added page
+            @RequestParam(required = false, defaultValue = "10") int size) { // Added size
+
+        Page<ReservationResponseDTO> reservationDTOsPage = reservationService.getAllReservations( // Call changed service method
+                classroomId, userId, status, startDate, endDate, sortField, sortDirection, page, size
         );
-        return ResponseEntity.ok(reservationDTOs);
+        return ResponseEntity.ok(reservationDTOsPage);
     }
 
     @GetMapping("/my-list")
@@ -75,21 +77,26 @@ public class ReservationController {
     public ResponseEntity<Page<ReservationResponseDTO>> getMyReservations(
             @AuthenticationPrincipal UserDetailsImpl currentUserDetails,
             @RequestParam(required = false) ReservationStatus status,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant startDate, // CAMBIO AQUÍ
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant endDate,   // CAMBIO AQUÍ
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant endDate,
             @RequestParam(required = false, defaultValue = "startTime") String sortField,
             @RequestParam(required = false, defaultValue = "desc") String sortDirection,
             @RequestParam(name = "upcomingOnly", required = false) Boolean upcomingOnlyParam,
             @RequestParam(required = false, defaultValue = "0") int page,
             @RequestParam(required = false, defaultValue = "10") int size) {
-        
+
         User currentAppUser = getCurrentUserEntity(currentUserDetails);
         Page<ReservationResponseDTO> reservationDTOsPage = reservationService.getFilteredUserReservations(
-                currentAppUser.getId(), status, sortField, sortDirection, 
-                page, size, 
-                upcomingOnlyParam != null && upcomingOnlyParam, 
-                startDate, endDate,
-                currentAppUser 
+                currentAppUser.getId(),
+                status,
+                sortField,
+                sortDirection,
+                page,
+                size,
+                upcomingOnlyParam != null && upcomingOnlyParam,
+                startDate,
+                endDate,
+                currentAppUser
         );
         return ResponseEntity.ok(reservationDTOsPage);
     }
@@ -105,9 +112,9 @@ public class ReservationController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR', 'ESTUDIANTE', 'PROFESOR', 'TUTOR')") 
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR', 'ESTUDIANTE', 'PROFESOR', 'TUTOR')")
     public ResponseEntity<ReservationResponseDTO> createReservation(
-            @Valid @RequestBody ReservationRequestDTO reservationRequestDTO, 
+            @Valid @RequestBody ReservationRequestDTO reservationRequestDTO,
             @AuthenticationPrincipal UserDetailsImpl currentUserDetails) {
         User currentAppUser = getCurrentUserEntity(currentUserDetails);
         ReservationResponseDTO createdReservationDTO = reservationService.createReservation(reservationRequestDTO, currentAppUser);
@@ -121,7 +128,7 @@ public class ReservationController {
     }
 
     @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR')") 
+    @PreAuthorize("hasAnyRole('ADMIN', 'COORDINADOR', 'ESTUDIANTE', 'PROFESOR', 'TUTOR')") // Updated PreAuthorize for PATCH /status
     public ResponseEntity<ReservationResponseDTO> updateReservationStatus(
             @PathVariable String id,
             @Valid @RequestBody UpdateStatusRequest statusRequest,
@@ -133,12 +140,12 @@ public class ReservationController {
         ReservationResponseDTO updatedReservationDTO = reservationService.updateReservationStatus(id, statusRequest.getStatus(), currentAppUser);
         return ResponseEntity.ok(updatedReservationDTO);
     }
-    
+
     @PutMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ReservationResponseDTO> updateReservationDetails(
             @PathVariable String id,
-            @Valid @RequestBody ReservationRequestDTO reservationRequestDTO, 
+            @Valid @RequestBody ReservationRequestDTO reservationRequestDTO,
             @AuthenticationPrincipal UserDetailsImpl currentUserDetails) {
         User currentAppUser = getCurrentUserEntity(currentUserDetails);
         ReservationResponseDTO updatedReservationDTO = reservationService.updateReservation(id, reservationRequestDTO, currentAppUser);
@@ -156,7 +163,7 @@ public class ReservationController {
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("isAuthenticated()") // Updated PreAuthorize for DELETE
     public ResponseEntity<Void> deleteReservation(
             @PathVariable String id,
             @AuthenticationPrincipal UserDetailsImpl currentUserDetails) {
