@@ -4,7 +4,14 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role?: Rol; 
+  role?: Rol;
   avatarUrl?: string;
   enabled?: boolean;
+}
+
+export interface UserSummary {
+  id: string;
+  name: string;
+  email: string;
+  role: Rol;
 }

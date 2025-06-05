@@ -1,5 +1,5 @@
-import { UserSummary, User } from './user.model'; 
-import { ClassroomSummary, Classroom } from './classroom.model'; 
+import { UserSummary, User } from './user.model';
+import { ClassroomSummary, Classroom } from './classroom.model';
 
 export enum ReservationStatus {
   PENDIENTE = 'PENDIENTE',
@@ -12,9 +12,9 @@ export interface Reservation {
   id: string;
   purpose: string;
   startTime: string;
-  endTime: string; 
+  endTime: string;
   status: ReservationStatus;
-  createdAt?: string; 
+  createdAt?: string;
   user?: UserSummary | User;
   classroom?: ClassroomSummary | Classroom;
   userId?: string;
@@ -25,7 +25,7 @@ export interface ReservationCreationData {
   purpose: string;
   classroomId: string;
   startTime: string;
-  endTime: string; 
+  endTime: string;
   userId?: string | null;
-  status?: ReservationStatus; 
+  status?: ReservationStatus;
 }

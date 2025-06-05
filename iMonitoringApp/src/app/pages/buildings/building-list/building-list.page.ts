@@ -3,7 +3,7 @@ import { RouterModule, Router } from '@angular/router';
 import { AlertController, LoadingController, ToastController, NavController, IonRefresher } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
 import { BuildingService } from '../../../services/building.service';
-import { BuildingDTO } from '../../../models/building.model'; 
+import { BuildingDTO } from '../../../models/building.model';
 import { AuthService } from '../../../services/auth.service';
 import { Rol } from '../../../models/rol.model';
 import { Subject } from 'rxjs';
@@ -16,13 +16,14 @@ import { IonicModule } from '@ionic/angular';
   templateUrl: './building-list.page.html',
   styleUrls: ['./building-list.page.scss'],
   standalone: true,
-  imports: [IonicModule, CommonModule, RouterModule], 
+  imports: [IonicModule, CommonModule, RouterModule],
 })
 export class BuildingListPage implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
-  buildings: BuildingDTO[] = []; 
+  buildings: BuildingDTO[] = [];
   isLoading = false;
   userRole: Rol | null = null;
+  public RolEnum = Rol;
   errorMessage: string | null = null;
 
   constructor(
@@ -54,7 +55,7 @@ export class BuildingListPage implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  async loadBuildings(event?: any) { 
+  async loadBuildings(event?: any) {
     this.isLoading = true;
     this.errorMessage = null;
     let loadingOverlay: HTMLIonLoadingElement | undefined;
@@ -69,7 +70,7 @@ export class BuildingListPage implements OnInit, OnDestroy {
         takeUntil(this.destroy$),
         finalize(async () => {
           this.isLoading = false;
-          if (loadingOverlay) { 
+          if (loadingOverlay) {
             try { await loadingOverlay.dismiss(); } catch(e) { console.warn("Error dismissing loading", e); }
           }
           if (event && event.target && typeof event.target.complete === 'function') {
@@ -79,19 +80,20 @@ export class BuildingListPage implements OnInit, OnDestroy {
         })
       )
       .subscribe({
-        next: (data: BuildingDTO[]) => { 
+        next: (data: BuildingDTO[]) => {
           this.buildings = data;
         },
         error: async (err: HttpErrorResponse | Error) => {
           const message = (err instanceof HttpErrorResponse) ? err.error?.message || err.message : err.message;
+          
           this.errorMessage = message || 'Error al cargar edificios.';
-          await this.presentToast(this.errorMessage, 'danger');
+          await this.presentToast(this.errorMessage!, 'danger');
         }
       });
   }
 
   canManageBuildings(): boolean {
-    return this.userRole === Rol.ADMIN; 
+    return this.userRole === Rol.ADMIN;
   }
 
   navigateToAddBuilding() {
@@ -103,7 +105,7 @@ export class BuildingListPage implements OnInit, OnDestroy {
     this.router.navigate(['/app/buildings/edit', buildingId]);
   }
 
-  async confirmDelete(building: BuildingDTO) { 
+  async confirmDelete(building: BuildingDTO) {
     if (!building.id || !this.canManageBuildings()) return;
 
     const alert = await this.alertCtrl.create({
@@ -113,7 +115,7 @@ export class BuildingListPage implements OnInit, OnDestroy {
         { text: 'Cancelar', role: 'cancel', cssClass: 'text-gray-700 dark:text-gray-300' },
         {
           text: 'Eliminar',
-          cssClass: 'text-kwd-red', 
+          cssClass: 'text-kwd-red',
           handler: () => this.deleteBuilding(building.id!),
         },
       ],
@@ -136,7 +138,7 @@ export class BuildingListPage implements OnInit, OnDestroy {
     .subscribe({
       next: async () => {
         await this.presentToast('Edificio eliminado exitosamente.', 'success');
-        this.loadBuildings(); 
+        this.loadBuildings();
       },
       error: async (err: HttpErrorResponse | Error) => {
         const message = (err instanceof HttpErrorResponse) ? err.error?.message || err.message : err.message;
@@ -151,12 +153,12 @@ export class BuildingListPage implements OnInit, OnDestroy {
       duration: duration,
       color: color,
       position: 'top',
-      buttons: [{text:'OK',role:'cancel'}] 
+      buttons: [{text:'OK',role:'cancel'}]
     });
     await toast.present();
   }
 
-  handleRefresh(event: any) { 
+  handleRefresh(event: any) {
     this.loadBuildings(event);
   }
 }

@@ -13,7 +13,7 @@ import { Rol } from '../../../models/rol.model';
 import { Observable, Subject, forkJoin, of } from 'rxjs';
 import { takeUntil, finalize, catchError, tap, take } from 'rxjs/operators';
 import { User } from '../../../models/user.model';
-import { UserService } from '../../../services/user.service'; 
+import { UserService } from '../../../services/user.service';
 
 
 @Component({
@@ -49,12 +49,12 @@ export class ClassroomFormPage implements OnInit, OnDestroy {
     private navCtrl: NavController,
     private cdr: ChangeDetectorRef,
     private router: Router,
-    private userService: UserService 
+    private userService: UserService
   ) {}
 
   ngOnInit() {
     console.log("ClassroomFormPage: ngOnInit - INICIO. isLoadingInitialData:", this.isLoadingInitialData);
-    this.isLoadingInitialData = true; 
+    this.isLoadingInitialData = true;
     this.cdr.detectChanges();
 
 
@@ -88,7 +88,7 @@ export class ClassroomFormPage implements OnInit, OnDestroy {
     };
 
     this.authService.getCurrentUserRole().pipe(take(1)).subscribe(roleValue => {
-      this.userRole = roleValue; 
+      this.userRole = roleValue;
       console.log("ClassroomFormPage: Rol obtenido en la suscripción externa:", this.userRole);
 
       if (this.userRole === Rol.COORDINADOR) {
@@ -112,16 +112,16 @@ export class ClassroomFormPage implements OnInit, OnDestroy {
         next: (results: any) => {
           console.log("ClassroomFormPage: forkJoin next - Resultados:", results);
           this.buildings = results.buildingsData || [];
-          if (results.studentUsersData) { 
+          if (results.studentUsersData) {
             this.studentUsers = results.studentUsersData;
           }
 
           if (this.userRole !== Rol.ADMIN) {
             console.log("ClassroomFormPage: Acceso denegado (dentro de forkJoin), el rol no es ADMIN.");
             this.presentToast('Acceso denegado. Solo los administradores pueden gestionar aulas.', 'danger');
-         
+
             this.navCtrl.navigateBack('/app/dashboard');
-            return; 
+            return;
           }
 
           this.classroomId = this.route.snapshot.paramMap.get('id');
@@ -151,14 +151,14 @@ export class ClassroomFormPage implements OnInit, OnDestroy {
   }
 
   async loadClassroomData(id: string) {
-    this.isLoading = true; 
+    this.isLoading = true;
     const loading = await this.loadingCtrl.create({ message: 'Cargando datos del aula...' });
     await loading.present();
 
     this.classroomService.getClassroomById(id).pipe(
       takeUntil(this.destroy$),
       finalize(async () => {
-        this.isLoading = false; 
+        this.isLoading = false;
         await loading.dismiss();
         this.cdr.detectChanges();
         console.log("ClassroomFormPage: loadClassroomData finalizado.");
@@ -171,7 +171,7 @@ export class ClassroomFormPage implements OnInit, OnDestroy {
           capacity: classroom.capacity,
           type: classroom.type,
           resources: classroom.resources,
-          buildingId: classroom.building?.id || classroom.buildingId
+          buildingId: classroom.buildingId 
         });
       },
       error: async (err: Error) => {

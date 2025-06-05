@@ -1,29 +1,32 @@
 package com.backend.IMonitoring.model;
 
 import jakarta.persistence.*;
-import lombok.Getter;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.Setter;
+
 import java.time.LocalDateTime;
 
-@Entity
-@Getter
-@Setter
+@Data
+@Builder
 @NoArgsConstructor
+@AllArgsConstructor
+@Entity
+@Table(name = "verification_tokens")
 public class VerificationToken {
+
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
+
+    @Column(nullable = false, unique = true)
     private String token;
-    @OneToOne(targetEntity = User.class, fetch = FetchType.EAGER)
+
+    @OneToOne(fetch = FetchType.EAGER)
     @JoinColumn(nullable = false, name = "user_id")
     private User user;
-    private LocalDateTime expiryDate;
-    private boolean verified = false; 
 
-    public VerificationToken(String token, User user) {
-        this.token = token;
-        this.user = user;
-        this.expiryDate = LocalDateTime.now().plusHours(24);
-    }
+    @Column(nullable = false)
+    private LocalDateTime expiryDate;
 }

@@ -32,7 +32,7 @@
 
       <ion-item *ngIf="(userRole === RolEnum.COORDINADOR || userRole === RolEnum.ADMIN)" lines="none" class="rounded-md shadow-sm bg-gray-50 dark:bg-kwd-dark dark:text-kwd-light focus-within:ring-2 focus-within:ring-inset focus-within:ring-kwd-blue-DEFAULT">
         <ion-label position="stacked" class="text-gray-700 dark:text-gray-300">
-          Reservar para Usuario 
+          Reservar para Usuario
           <span *ngIf="userRole === RolEnum.COORDINADOR && !isEditMode" class="text-red-500">*</span>
           <span *ngIf="userRole === RolEnum.ADMIN && !isEditMode">(Opcional, por defecto tú)</span>
         </ion-label>
@@ -40,7 +40,7 @@
                     class="text-gray-900 dark:text-kwd-light"
                     [ngClass]="{'ion-invalid ion-touched': reservationForm.get('userId')?.invalid && reservationForm.get('userId')?.touched}">
           <ion-select-option *ngIf="userRole === RolEnum.ADMIN && !isEditMode" [value]="null">-- Para mí (Admin) --</ion-select-option>
-          <ion-select-option *ngFor="let user of assignableUsers" [value]="user.id">
+          <ion-select-option *ngFor="let user of usersForSelect" [value]="user.id">
             {{ user.name }} ({{ user.email }})
           </ion-select-option>
         </ion-select>
